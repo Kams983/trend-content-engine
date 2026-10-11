@@ -145,6 +145,9 @@ final database state.
 6. **Rerunning a day** → safe. `publications` makes publishing idempotent.
 7. **State** → `trend_store.sqlite` plus `site/content/posts/*.md` are pushed
    to the orphan `state` branch by CI (single-commit, force-push; history never grows).
+8. **Site rebuild** → `publish-approved` triggers the Cloudflare Pages deploy
+   hook (`CF_DEPLOY_HOOK_URL` secret) whenever a run writes a new post; code
+   pushes on `main` deploy normally on their own.
 
 ## Licence
 

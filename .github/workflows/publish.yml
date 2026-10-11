@@ -42,6 +42,7 @@ jobs:
         run: python -m src.state.persist restore
 
       - name: Process approvals and publish
+        id: publish
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           SITE_URL: ${{ vars.SITE_URL }}
@@ -61,11 +62,30 @@ jobs:
           HASHNODE_PUBLICATION_ID: ${{ secrets.HASHNODE_PUBLICATION_ID }}
           MASTODON_INSTANCE: ${{ secrets.MASTODON_INSTANCE }}
           MASTODON_ACCESS_TOKEN: ${{ secrets.MASTODON_ACCESS_TOKEN }}
-        run: python -m src.main --mode publish
+        run: |
+          before=$(find site/content/posts -name '*.md' 2>/dev/null | wc -l | tr -d ' ')
+          python -m src.main --mode publish
+          after=$(find site/content/posts -name '*.md' 2>/dev/null | wc -l | tr -d ' ')
+          if [ "$after" -gt "$before" ]; then new_post=true; else new_post=false; fi
+          echo "new_post=$new_post" >> "$GITHUB_OUTPUT"
+          echo "post files: $before -> $after (new_post=$new_post)"
 
       - name: Save engine state
         run: |
           python -m src.state.persist save --message "state: publish run $(date -u +%Y-%m-%dT%H:%MZ)"
+
+      - name: Trigger the Cloudflare Pages rebuild (only when a post was written)
+        if: "success() && steps.publish.outputs.new_post == 'true'"
+        env:
+          CF_DEPLOY_HOOK_URL: ${{ secrets.CF_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -z "${CF_DEPLOY_HOOK_URL}" ]; then
+            echo "CF_DEPLOY_HOOK_URL is not set; skipping the site rebuild."
+            echo "Add a Cloudflare Pages deploy hook and store its URL as the CF_DEPLOY_HOOK_URL secret (docs/SETUP.md section 7)."
+            exit 0
+          fi
+          curl -fsS --retry 3 --retry-delay 5 --retry-all-errors -X POST "${CF_DEPLOY_HOOK_URL}" -o /dev/null
+          echo "Cloudflare Pages build triggered."
 
       - name: Alert on failure
         if: failure()

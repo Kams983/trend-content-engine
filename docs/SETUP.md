@@ -67,6 +67,7 @@ Create the repo, push `main`. Then **Settings → Secrets and variables → Acti
 | `HASHNODE_PUBLICATION_ID` | if `ENABLE_HASHNODE` | Hashnode → blog dashboard → publication id |
 | `MASTODON_INSTANCE` | if `ENABLE_MASTODON` | e.g. `https://mastodon.social` |
 | `MASTODON_ACCESS_TOKEN` | if `ENABLE_MASTODON` | instance → Preferences → Development → New application (write scope) |
+| `CF_DEPLOY_HOOK_URL` | recommended | Cloudflare Pages deploy hook URL — lets the publish workflow rebuild the site (§7) |
 
 ### 3b. Variables (plain text, non-secret)
 
@@ -131,9 +132,20 @@ subdomain (e.g. `trend.example.com`).
 
 1. Cloudflare dashboard → Workers & Pages → Create → Pages → connect the repo.
 2. **Build settings**
-   * Root directory: `site`
-   * Build command: `npm ci && npm run build`
+   * Production branch: `main`
+   * Root directory: leave **empty**
    * Build output directory: `dist`
+   * Build command — posts live on the `state` branch, so this fetches them
+     first:
+
+     ```
+     git fetch --depth=1 origin state:state || true; git restore --source=state -- site/content/posts || true; cd site && npm ci && npm run build
+     ```
+
+     A **private** repo may not let the build fetch `state`; in that case add a
+     fine-grained GitHub token (this repo, **Contents: Read**) as the Pages
+     secret `GH_TOKEN` and fetch with
+     `git fetch --depth=1 "https://x-access-token:${GH_TOKEN}@github.com/<owner>/<repo>.git" state:state`.
 3. **Environment variables** (Production *and* Preview)
 
    | Name | Value |
@@ -142,16 +154,20 @@ subdomain (e.g. `trend.example.com`).
    | `PUBLIC_CF_ANALYTICS_TOKEN` | optional, see §11 |
    | `PUBLIC_BUTTONDOWN_USERNAME` | optional, see §11 |
 
-4. Because posts live on the `state` branch, add a build step that restores them
-   before building — set the build command to:
-
-   ```
-   git fetch --depth=1 origin state:state || true; git restore --source=state -- site/content/posts || true; cd site && npm ci && npm run build
-   ```
-
-   (with Root directory left empty), or add the same two `git` lines to a
-   `prebuild` npm script.
-5. Pages → Custom domains → add `trend.example.com`, then create the DNS record
+4. **Branch control** — Settings → Builds & deployments → set automatic
+   **preview** deployments to **None** (production builds of `main` keep
+   working). Every engine run force-pushes the single-commit `state` branch,
+   which holds no site code, so a preview build of it could only fail.
+5. **Deploy hook — what actually rebuilds the site.** A published article
+   changes only the `state` branch, never `main`, so nothing would rebuild the
+   site on its own:
+   * Pages → Settings → Builds & deployments → **Deploy hooks** → add a hook for
+     branch `main` → copy its URL.
+   * GitHub → Settings → Secrets and variables → Actions → add the secret
+     `CF_DEPLOY_HOOK_URL` with that URL. `publish-approved` calls it only on runs
+     that actually wrote a new post, and only when the secret is set; code
+     pushes on `main` still deploy by themselves.
+6. Pages → Custom domains → add `trend.example.com`, then create the DNS record
    Cloudflare asks for (usually a `CNAME` to `<project>.pages.dev`, or an `A`/
    `AAAA` record if the zone is on Cloudflare and proxied).
 
@@ -191,8 +207,8 @@ boring.
    anywhere). Next day (or on a manual run) tap Approve and confirm exactly one
    post appears on the site and that `publish-approved` reports `PUBLISHED`.
 5. **Site only** — with `SITE_URL` set and all `ENABLE_*` still `false`, let a
-   real run publish. Verify the page, its OG image, the RSS item and the
-   canonical URL.
+   real run publish. The deploy hook queues a fresh Pages build (check its log);
+   verify the page, its OG image, the RSS item and the canonical URL.
 6. **Enable social targets one at a time** — flip exactly one of
    `ENABLE_TELEGRAM_CHANNEL`, `ENABLE_BLUESKY`, `ENABLE_DEVTO`, `ENABLE_MASTODON`
    (and `ENABLE_HASHNODE` only if you have Pro), run `publish-approved`
@@ -235,5 +251,6 @@ not affected by that rule.
 | `PENDING_APPROVAL` | a draft is waiting on Telegram | approve/reject in the admin chat |
 | Draft arrives twice in one day | it should not — the same-day guard prevents it | if it does, check `run_log` for the `articles` rows and open an issue |
 | Push of the `state` branch fails | token/permission problem | confirm `contents: write` is still granted to the workflow |
-| Site shows no posts | state not restored before the build | check the restore step in the hosting build command (§7.4) |
+| Site shows no posts | state not restored, or no rebuild triggered | check the restore step in the build command and the `CF_DEPLOY_HOOK_URL` secret (§7) |
 | `git restore --source=state` fails | first ever run, no branch yet | expected no-op; ignore |
+| Every run is `startup_failure` with no jobs | GitHub blocked the run — account payments failed or the Actions spending limit is reached | fix Billing & plans (payment method, Actions spending limit), then re-run the workflow |
