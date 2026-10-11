@@ -18,7 +18,7 @@ import re
 
 from ..util.http import RetryPolicy, post_json
 from ..util.text import slugify
-from .base import PublishResult, post_url
+from .base import PublishResult, cross_post_body, post_url
 
 logger = logging.getLogger(__name__)
 
@@ -49,10 +49,11 @@ def hashnode_tags(tags: list[str], limit: int = MAX_TAGS) -> list[dict]:
 
 
 def build_variables(article: dict, settings) -> dict:
+    brand = (article.get("brand_name") or getattr(settings, "brand_name", "") or "").strip()
     canonical = article.get("url") or post_url(settings, article.get("slug", ""))
     payload = {
         "title": (article.get("title") or "")[:250],
-        "contentMarkdown": article.get("body_markdown") or "",
+        "contentMarkdown": cross_post_body(article.get("body_markdown") or "", canonical, brand),
         "publicationId": settings.hashnode_publication_id,
         "slug": article.get("slug") or "",
         "originalArticleURL": canonical,

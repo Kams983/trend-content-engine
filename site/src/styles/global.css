@@ -1,7 +1,8 @@
 /* ------------------------------------------------------------------
-   Trend Content Engine — editorial stylesheet
-   Typography-led, one accent colour, no gradients, no imagery.
-   Light and dark follow prefers-color-scheme.
+   Editorial stylesheet — reader-facing, so it belongs to the
+   publication brand (SITE.title / PUBLIC_BRAND_NAME), never to the
+   engine that produced it. Typography-led, one accent colour, no
+   gradients, no imagery. Light and dark follow prefers-color-scheme.
    ------------------------------------------------------------------ */
 
 :root {

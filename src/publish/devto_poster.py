@@ -14,7 +14,7 @@ import logging
 import re
 
 from ..util.http import RetryPolicy, post_json
-from .base import PublishResult, build_description, post_url
+from .base import PublishResult, build_description, cross_post_body, post_url
 
 logger = logging.getLogger(__name__)
 
@@ -35,14 +35,21 @@ def devto_tags(tags: list[str], limit: int = MAX_TAGS) -> list[str]:
 
 
 def build_payload(article: dict, settings) -> dict:
+    """The DEV.to article, with the publication brand on the description and a
+    code-appended attribution block at the end of the syndicated body."""
+    brand = (article.get("brand_name") or getattr(settings, "brand_name", "") or "").strip()
+    canonical = article.get("url") or post_url(settings, article.get("slug", ""))
+    description = build_description(article.get("teaser", ""))
+    if brand:
+        description = f"{description} — {brand}".strip()
     return {
         "article": {
             "title": (article.get("title") or "")[:128],
-            "body_markdown": article.get("body_markdown") or "",
+            "body_markdown": cross_post_body(article.get("body_markdown") or "", canonical, brand),
             "published": True,
-            "description": build_description(article.get("teaser", "")),
+            "description": description,
             "tags": devto_tags(article.get("tags") or []),
-            "canonical_url": article.get("url") or post_url(settings, article.get("slug", "")),
+            "canonical_url": canonical,
         }
     }
 

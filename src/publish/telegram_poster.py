@@ -18,7 +18,7 @@ import urllib.parse
 from typing import Any
 
 from ..util.http import RetryPolicy, post_json, request
-from .base import PublishResult, build_description, post_url
+from .base import PublishResult, build_description, post_url, publication_footer
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +39,11 @@ def api_url(token: str, method: str) -> str:
 
 
 def build_channel_message(article: dict, settings) -> str:
-    """Channel post: bold title, teaser, link."""
+    """Channel post: bold title, teaser, branding, link.
+
+    The link text is the publication attribution (``Read more on <brand>``) so
+    the channel post names the brand, never the engine that produced it.
+    """
     parts: list[str] = []
     title = (article.get("title") or "").strip()
     if title:
@@ -49,7 +53,9 @@ def build_channel_message(article: dict, settings) -> str:
         parts.append(escape_html(teaser))
     link = article.get("url") or post_url(settings, article.get("slug", ""))
     if link:
-        parts.append(f'<a href="{escape_html(link)}">Read the full article →</a>')
+        brand = article.get("brand_name") or getattr(settings, "brand_name", "")
+        label = publication_footer(brand) or "Read the full article"
+        parts.append(f'<a href="{escape_html(link)}">{escape_html(label)} →</a>')
     return "\n\n".join(parts)
 
 

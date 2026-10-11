@@ -23,6 +23,15 @@ DEFAULT_CONTENT_DIR = REPO_ROOT / "site" / "content" / "posts"
 DEFAULT_GROQ_MODEL = "openai/gpt-oss-120b"
 DEFAULT_GROQ_MODEL_FALLBACK = "openai/gpt-oss-20b"
 
+#: The PUBLIC publication brand. Internal names (repo, package, tables, env
+#: prefixes, the ``state`` branch, logs, the User-Agent, tests and internal docs)
+#: keep "TCE". Anything a reader, follower or search engine can see uses these
+#: two values, which are also the site's ``PUBLIC_BRAND_NAME``/
+#: ``PUBLIC_BRAND_TAGLINE`` defaults. This is the ONLY place in the Python tree
+#: that may name the brand; everything else reads ``settings.brand_name``.
+DEFAULT_BRAND_NAME = "Upwire"
+DEFAULT_BRAND_TAGLINE = "What's rising in tech and AI, with sources."
+
 
 class ConfigError(RuntimeError):
     """Raised at startup when required configuration is missing or invalid.
@@ -122,6 +131,9 @@ class Settings:
 
     # --- site -----------------------------------------------------------
     site_url: str = ""
+    # Public brand (see DEFAULT_BRAND_NAME). Not an internal identifier.
+    brand_name: str = DEFAULT_BRAND_NAME
+    brand_tagline: str = DEFAULT_BRAND_TAGLINE
 
     # --- feature flags --------------------------------------------------
     require_approval: bool = True
@@ -253,6 +265,8 @@ def load_settings(
         groq_max_tokens=_int("GROQ_MAX_TOKENS", 2048),
         groq_max_attempts=_int("GROQ_MAX_ATTEMPTS", 3),
         site_url=_str("SITE_URL", "").rstrip("/"),
+        brand_name=_str("BRAND_NAME", DEFAULT_BRAND_NAME),
+        brand_tagline=_str("BRAND_TAGLINE", DEFAULT_BRAND_TAGLINE),
         require_approval=_bool("REQUIRE_APPROVAL", True),
         enable_bluesky=_bool("ENABLE_BLUESKY", False),
         enable_telegram_channel=_bool("ENABLE_TELEGRAM_CHANNEL", False),

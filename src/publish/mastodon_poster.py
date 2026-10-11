@@ -1,4 +1,4 @@
-"""Publish a teaser + link to Mastodon (optional, off by default).
+"""Publish a branded teaser + link to Mastodon (optional, off by default).
 
 Verified against the Mastodon REST API:
 
@@ -12,8 +12,7 @@ from __future__ import annotations
 import logging
 
 from ..util.http import RetryPolicy, post_json
-from ..util.text import grapheme_len, truncate_graphemes
-from .base import PublishResult, post_url
+from .base import PublishResult, compose_post_text, post_url, publication_footer
 
 logger = logging.getLogger(__name__)
 
@@ -21,18 +20,18 @@ DEFAULT_LIMIT = 500
 _POLICY = RetryPolicy(attempts=3, backoff_base=1.0, timeout=20.0)
 
 
-def build_status(article: dict, settings, limit: int = DEFAULT_LIMIT) -> str:
-    """Teaser plus link, within Mastodon's character limit."""
+def build_status(article: dict, settings, limit: int = DEFAULT_LIMIT, footer: str | None = None) -> str:
+    """Teaser, publication attribution and link, within Mastodon's limit.
+
+    ``footer`` defaults to the publication attribution for *settings*; pass an
+    empty string to post without one.
+    """
+    brand = article.get("brand_name") or getattr(settings, "brand_name", "")
+    if footer is None:
+        footer = publication_footer(brand)
     teaser = (article.get("teaser") or "").strip()
     link = article.get("url") or post_url(settings, article.get("slug", ""))
-    if not link:
-        return truncate_graphemes(teaser, limit)
-    if not teaser:
-        return link
-    budget = limit - grapheme_len(link) - 2
-    if budget <= 1:
-        return link
-    return f"{truncate_graphemes(teaser, budget)}\n\n{link}"
+    return compose_post_text(teaser, link, limit=limit, footer=footer)
 
 
 def mastodon_poster(article: dict, settings) -> PublishResult:

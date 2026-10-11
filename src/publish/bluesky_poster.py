@@ -8,8 +8,9 @@ Verified against atproto **0.0.71**:
 * facets are ``models.AppBskyRichtextFacet.Main`` with a ``ByteSlice`` index
   (UTF-8 **byte** offsets) and a ``Link`` feature
 
-Bluesky's limit is 300 *graphemes*, not characters, so truncation uses
-:func:`src.util.text.grapheme_len`.
+Bluesky's limit is 300 *graphemes*, not characters, so truncation goes through
+the shared :func:`src.publish.base.compose_post_text` template (which counts
+graphemes), and the post carries the publication brand — never an engine name.
 """
 
 from __future__ import annotations
@@ -18,8 +19,7 @@ import logging
 import re
 from typing import Any
 
-from ..util.text import grapheme_len, truncate_graphemes
-from .base import PublishResult, build_description, post_url
+from .base import PublishResult, build_description, compose_post_text, post_url, publication_footer
 
 logger = logging.getLogger(__name__)
 
@@ -27,20 +27,13 @@ BLUESKY_LIMIT = 300
 _URL_RE = re.compile(r"https?://[^\s]+")
 
 
-def build_post_text(teaser: str, url: str = "", limit: int = BLUESKY_LIMIT) -> str:
-    """Teaser plus link, guaranteed to fit Bluesky's grapheme limit."""
-    text = (teaser or "").strip()
-    url = (url or "").strip()
-    if not url:
-        return truncate_graphemes(text, limit)
-    if not text:
-        return url
-    if grapheme_len(text) + 2 + grapheme_len(url) <= limit:
-        return f"{text}\n\n{url}"
-    room = limit - grapheme_len(url) - 2
-    if room <= 1:
-        return url
-    return f"{truncate_graphemes(text, room)}\n\n{url}"
+def build_post_text(teaser: str, url: str = "", limit: int = BLUESKY_LIMIT, footer: str = "") -> str:
+    """Teaser, publication attribution and link, fitted to Bluesky's limit.
+
+    Shares the one outbound template in :func:`src.publish.base.compose_post_text`
+    so the brand line and the truncation rule are identical on every target.
+    """
+    return compose_post_text(teaser, url, limit=limit, footer=footer)
 
 
 def build_facets(text: str) -> list[Any]:
@@ -86,7 +79,8 @@ def bluesky_poster(article: dict, settings) -> PublishResult:
         return PublishResult(target="bluesky", skipped=True, error="empty teaser")
 
     link = article.get("url") or post_url(settings, article.get("slug", ""))
-    text = build_post_text(teaser, link)
+    footer = article.get("brand_name") or getattr(settings, "brand_name", "")
+    text = build_post_text(teaser, link, footer=publication_footer(footer))
     facets = build_facets(text)
     embed = build_external_embed(link, article.get("title", ""), build_description(teaser, 200))
 

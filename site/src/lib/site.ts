@@ -1,12 +1,38 @@
 import type { CollectionEntry } from "astro:content";
 
-/** Site-wide identity. */
+/**
+ * Public identity of the publication.
+ *
+ * The *engine* that writes this site is called the Trend Content Engine (TCE).
+ * That name belongs to the repository, the code, the `state` branch, logs and
+ * the internal docs — never to a reader. No page, feed, meta tag, OG image or
+ * 404 may contain it, and `npm run check:brand` fails the build if one does.
+ *
+ * Everything reader-facing is driven by the two values below, which mirror the
+ * Python `BRAND_NAME` / `BRAND_TAGLINE` settings. On a hosting build the
+ * matching `PUBLIC_BRAND_NAME` / `PUBLIC_BRAND_TAGLINE` variables override them,
+ * so a rebrand is an environment change rather than a code edit. Changing these
+ * renames the wordmark, page titles, structured data, RSS and share cards at
+ * once.
+ */
+const FALLBACK_BRAND_NAME = "Upwire";
+const FALLBACK_BRAND_TAGLINE = "What's rising in tech and AI, with sources.";
+
+const brandName = (import.meta.env.PUBLIC_BRAND_NAME || FALLBACK_BRAND_NAME).trim();
+const brandTagline = (import.meta.env.PUBLIC_BRAND_TAGLINE || FALLBACK_BRAND_TAGLINE).trim();
+
+export const BRAND = {
+  name: brandName,
+  tagline: brandTagline,
+} as const;
+
 export const SITE = {
-  title: "Trend Content Engine",
-  tagline: "One grounded article a day, built from what the internet is actually talking about.",
+  /** The wordmark and the only name that may appear in rendered output. */
+  title: BRAND.name,
+  tagline: BRAND.tagline,
   description:
     "A daily, AI-assisted digest of what's trending across Hacker News, arXiv, GitHub and Reddit — clustered by topic, scored, and written from cited sources only.",
-  author: "Trend Content Engine",
+  author: BRAND.name,
   language: "en",
 } as const;
 
