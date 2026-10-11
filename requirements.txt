@@ -1,0 +1,27 @@
+# Trend Content Engine — pinned dependencies
+#
+# CPU-only PyTorch must be installed from the PyTorch CPU index so an 8 GB
+# dev box (and Ubuntu CI) does not pull the ~2 GB CUDA wheels:
+#
+#   pip install --extra-index-url https://download.pytorch.org/whl/cpu -r requirements.txt
+#
+# sentence-transformers pulls in torch/transformers/huggingface_hub; pinning
+# torch explicitly keeps the CPU wheel selection deterministic.
+
+# --- HTTP / config -------------------------------------------------------
+requests==2.31.0
+python-dotenv==1.0.1
+
+# --- Embeddings (CPU only) ----------------------------------------------
+numpy==2.4.4
+torch==2.13.0+cpu
+sentence-transformers==6.0.0
+
+# --- Publishing ----------------------------------------------------------
+atproto==0.0.71
+
+# --- Text handling -------------------------------------------------------
+grapheme==0.6.0
+
+# --- Tests ---------------------------------------------------------------
+pytest==9.0.3

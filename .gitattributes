@@ -1,0 +1,9 @@
+# Normalise line endings: LF in the repo, LF on checkout everywhere.
+* text=auto eol=lf
+
+# Binary assets
+*.png binary
+*.jpg binary
+*.ico binary
+*.webp binary
+*.woff2 binary

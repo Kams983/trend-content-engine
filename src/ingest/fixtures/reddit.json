@@ -1,0 +1,272 @@
+[
+  {
+    "source": "reddit",
+    "title": "Announcement: We've Updated The Rules, and April Is Finally Over",
+    "content": "After temporarily banning LLM-related content over April , and asking you for feedback on that ban , we've decided to bring about an end of the temporary, I-can't-believe-it's-still-April ban on AI-related posts. Replacing the trial rule is a new shiny rule that refers to our new shiny AI policy . In short: Content about AI and LLMs are considered off-topic with the sole exclusion of deeply technical content about implementation. And if you want more detail than that, go read the policy, that's what it's there for. In addition, when writing that rule, I realized the rules weren't listed on the old.reddit.com sidebar, so that's been updated. For those of you who are seeing those rules for the first time, everything there is not new. We've been enforcing those rules as best we can for ages. You can click the link above those to get to the old.reddit rules page, with plenty of info that doesn't exactly read well when crammed into a sidebar. submitted by /u/ChemicalRascal [link] [comments]",
+    "url": "https://www.reddit.com/r/programming/comments/1tlh5aj/announcement_weve_updated_the_rules_and_april_is/",
+    "engagement": 0,
+    "timestamp": "2026-05-23 13:54:37+00:00",
+    "tags": []
+  },
+  {
+    "source": "reddit",
+    "title": "p99 0 ms* autocomplete for 240 million domain names",
+    "content": "submitted by /u/fagnerbrack [link] [comments]",
+    "url": "https://www.reddit.com/r/programming/comments/1w2yw8j/p99_0_ms_autocomplete_for_240_million_domain_names/",
+    "engagement": 0,
+    "timestamp": "2026-08-31 01:00:56+00:00",
+    "tags": []
+  },
+  {
+    "source": "reddit",
+    "title": "Reverse Engineering Unknown File Formats with ImHex",
+    "content": "submitted by /u/WerWolv [link] [comments]",
+    "url": "https://www.reddit.com/r/programming/comments/1w2ckmm/reverse_engineering_unknown_file_formats_with/",
+    "engagement": 0,
+    "timestamp": "2026-08-30 09:08:12+00:00",
+    "tags": []
+  },
+  {
+    "source": "reddit",
+    "title": "Automating immersive reading",
+    "content": "I took a week off from work recently to reimplement Storyteller's forced alignment algorithm. Storyteller is an open source, self hosted platform for creating, managing, and reading/listening to \"readaloud\" books \u2014 books that have audiobook narration built in and can highlight each sentence (and/or word, with this new algorithm!) as it's read aloud. Forced alignment is the process of determining where each piece of text starts and ends in the audiobook. Anyway, I am really pleased with how the new algorithm turned out! Hopefully someone else finds it interesting as well. submitted by /u/scrollin_thru [link] [comments]",
+    "url": "https://www.reddit.com/r/programming/comments/1w2fc9t/automating_immersive_reading/",
+    "engagement": 0,
+    "timestamp": "2026-08-30 11:42:42+00:00",
+    "tags": []
+  },
+  {
+    "source": "reddit",
+    "title": "Zod v4.5 adds schema compilation (3-9x faster validation)",
+    "content": "submitted by /u/gajus0 [link] [comments]",
+    "url": "https://www.reddit.com/r/programming/comments/1w1sl70/zod_v45_adds_schema_compilation_39x_faster/",
+    "engagement": 0,
+    "timestamp": "2026-08-29 17:30:54+00:00",
+    "tags": []
+  },
+  {
+    "source": "reddit",
+    "title": "</> htmx ~ Building Critical Infrastructure with htmx: Network Automation for the Paris 2024 Olympics",
+    "content": "submitted by /u/yawaramin [link] [comments]",
+    "url": "https://www.reddit.com/r/programming/comments/1w1wspl/htmx_building_critical_infrastructure_with_htmx/",
+    "engagement": 0,
+    "timestamp": "2026-08-29 20:15:55+00:00",
+    "tags": []
+  },
+  {
+    "source": "reddit",
+    "title": "Coding a database proxy for fun",
+    "content": "submitted by /u/der_gopher [link] [comments]",
+    "url": "https://www.reddit.com/r/programming/comments/1w1iiaw/coding_a_database_proxy_for_fun/",
+    "engagement": 0,
+    "timestamp": "2026-08-29 10:01:37+00:00",
+    "tags": []
+  },
+  {
+    "source": "reddit",
+    "title": "Wrapping GTK4 in 800 lines of Clojure with Jolt",
+    "content": "submitted by /u/yogthos [link] [comments]",
+    "url": "https://www.reddit.com/r/programming/comments/1w1wbcj/wrapping_gtk4_in_800_lines_of_clojure_with_jolt/",
+    "engagement": 0,
+    "timestamp": "2026-08-29 19:56:51+00:00",
+    "tags": []
+  },
+  {
+    "source": "reddit",
+    "title": "Inside the TypeScript Checker: From Text to Types",
+    "content": "submitted by /u/Happycodeine [link] [comments]",
+    "url": "https://www.reddit.com/r/programming/comments/1w1y2m3/inside_the_typescript_checker_from_text_to_types/",
+    "engagement": 0,
+    "timestamp": "2026-08-29 21:06:41+00:00",
+    "tags": []
+  },
+  {
+    "source": "reddit",
+    "title": "htmx 4.0.0 has been released!",
+    "content": "submitted by /u/BrewedDoritos [link] [comments]",
+    "url": "https://www.reddit.com/r/programming/comments/1w0w1pp/htmx_400_has_been_released/",
+    "engagement": 0,
+    "timestamp": "2026-08-28 16:54:22+00:00",
+    "tags": []
+  },
+  {
+    "source": "reddit",
+    "title": "Crossing Boundaries with Integration Events",
+    "content": "How to turn internal domain facts into reliable contracts between bounded contexts. submitted by /u/deniskyashif [link] [comments]",
+    "url": "https://www.reddit.com/r/programming/comments/1w1q308/crossing_boundaries_with_integration_events/",
+    "engagement": 0,
+    "timestamp": "2026-08-29 15:52:00+00:00",
+    "tags": []
+  },
+  {
+    "source": "reddit",
+    "title": "Lean explained with TypeScript",
+    "content": "submitted by /u/ngruhn [link] [comments]",
+    "url": "https://www.reddit.com/r/programming/comments/1w190pi/lean_explained_with_typescript/",
+    "engagement": 0,
+    "timestamp": "2026-08-29 01:30:41+00:00",
+    "tags": []
+  },
+  {
+    "source": "reddit",
+    "title": "Crystal Lang: Releasing Execution Contexts",
+    "content": "About a month ago, Crystal 's multi-threading moved out of preview. I'm a little late with the blog post, but figured I'd share it here in case someone is interested in the language. To those unfamiliar with Crystal , it's basically an AoT-compiled language with a syntax that's inspired by Ruby but with static type safety. It doesn't have a big org behind it, so Manas Tech still working on the language and shipping enhancements is quite amazing imo. I will add that while it's used by Kagi and Lavinmq , I don't think either company has the same resources to pour into Crystal as Jane Street does with OCaml . I haven't really had the chance to play around with the changes. So, got no clue on what the experience is like. submitted by /u/Bassfaceapollo [link] [comments]",
+    "url": "https://www.reddit.com/r/programming/comments/1w1bjk0/crystal_lang_releasing_execution_contexts/",
+    "engagement": 0,
+    "timestamp": "2026-08-29 03:34:16+00:00",
+    "tags": []
+  },
+  {
+    "source": "reddit",
+    "title": "How we saved 100 terabytes of memory by optimizing 1.1.1.1\u2019s DNS cache",
+    "content": "submitted by /u/Ok_Stomach6651 [link] [comments]",
+    "url": "https://www.reddit.com/r/programming/comments/1w06vn1/how_we_saved_100_terabytes_of_memory_by/",
+    "engagement": 0,
+    "timestamp": "2026-08-27 21:19:39+00:00",
+    "tags": []
+  },
+  {
+    "source": "reddit",
+    "title": "Follow-up: Running the same Spring Boot app on a 256 MB VPS with JDK 25",
+    "content": "Follow-up to my 512 MB Spring Boot experiment: I tried the same application on a 256 MB Alpine VPS. JDK 21 struggled badly at this size, but with JDK 25 and a tuned 80 MB heap, the app plus lightweight monitoring completed a one-hour run without restarts or OOM kills. Still not something I\u2019d recommend for normal production, but the difference was interesting. submitted by /u/fykup [link] [comments]",
+    "url": "https://www.reddit.com/r/programming/comments/1w0u6rw/followup_running_the_same_spring_boot_app_on_a/",
+    "engagement": 0,
+    "timestamp": "2026-08-28 15:45:35+00:00",
+    "tags": []
+  },
+  {
+    "source": "reddit",
+    "title": "Log-first or Table-first? Apache Kafka, Fluss, & Streaming Tables",
+    "content": "submitted by /u/mmatloka [link] [comments]",
+    "url": "https://www.reddit.com/r/programming/comments/1w12s1m/logfirst_or_tablefirst_apache_kafka_fluss/",
+    "engagement": 0,
+    "timestamp": "2026-08-28 21:03:18+00:00",
+    "tags": []
+  },
+  {
+    "source": "reddit",
+    "title": "How Jekyll Works",
+    "content": "I like Jekyll a lot. Hope you find it useful. If you notice any errors or have thoughts to share, don't hold back in the comments or DMs. All feedback is genuinely welcome \ud83d\ude42. submitted by /u/sarans22 [link] [comments]",
+    "url": "https://www.reddit.com/r/programming/comments/1vztl74/how_jekyll_works/",
+    "engagement": 0,
+    "timestamp": "2026-08-27 13:11:45+00:00",
+    "tags": []
+  },
+  {
+    "source": "reddit",
+    "title": "GitHub confirms Actions outage caused by database issue",
+    "content": "If your GitHub Actions jobs are stuck in \"Queued\" or waiting for a runner, GitHub has now confirmed there is an incident. GitHub says they identified an issue with a database primary and are failing over to a replica. Actions is affected, and GitHub Pages is also experiencing degraded performance. So if you have been checking your workflow, runner settings, permissions or billing, it might not be your configuration. Status page: https://www.githubstatus.com/incidents/y1t7p9fzrlj2 Hopefully this saves someone else from spending an hour debugging their YAML. submitted by /u/Codeblix_Ltd [link] [comments]",
+    "url": "https://www.reddit.com/r/programming/comments/1vz0z6b/github_confirms_actions_outage_caused_by_database/",
+    "engagement": 0,
+    "timestamp": "2026-08-26 15:53:21+00:00",
+    "tags": []
+  },
+  {
+    "source": "reddit",
+    "title": "mold: A Massively Parallel Linker",
+    "content": "submitted by /u/mttd [link] [comments]",
+    "url": "https://www.reddit.com/r/programming/comments/1vz921w/mold_a_massively_parallel_linker/",
+    "engagement": 0,
+    "timestamp": "2026-08-26 20:37:45+00:00",
+    "tags": []
+  },
+  {
+    "source": "reddit",
+    "title": "How to drive your frontend from the backend",
+    "content": "submitted by /u/der_gopher [link] [comments]",
+    "url": "https://www.reddit.com/r/programming/comments/1vz715a/how_to_drive_your_frontend_from_the_backend/",
+    "engagement": 0,
+    "timestamp": "2026-08-26 19:26:11+00:00",
+    "tags": []
+  },
+  {
+    "source": "reddit",
+    "title": "SQLite in Production with Built-In Litestream Replication",
+    "content": "submitted by /u/avkijay [link] [comments]",
+    "url": "https://www.reddit.com/r/programming/comments/1vz5v47/sqlite_in_production_with_builtin_litestream/",
+    "engagement": 0,
+    "timestamp": "2026-08-26 18:44:55+00:00",
+    "tags": []
+  },
+  {
+    "source": "reddit",
+    "title": "The Depths of JavaScript: Minesweeper in 247 Bytes",
+    "content": "submitted by /u/yui01 [link] [comments]",
+    "url": "https://www.reddit.com/r/programming/comments/1vyuagp/the_depths_of_javascript_minesweeper_in_247_bytes/",
+    "engagement": 0,
+    "timestamp": "2026-08-26 11:23:10+00:00",
+    "tags": []
+  },
+  {
+    "source": "reddit",
+    "title": "Casey Muratori \u2013 The Root of The Root of All Evil \u2013 BSC 2026",
+    "content": "submitted by /u/cdb_11 [link] [comments]",
+    "url": "https://www.reddit.com/r/programming/comments/1vynzwf/casey_muratori_the_root_of_the_root_of_all_evil/",
+    "engagement": 0,
+    "timestamp": "2026-08-26 05:30:55+00:00",
+    "tags": []
+  },
+  {
+    "source": "reddit",
+    "title": "Flat vs segmented memory -- it's recursive",
+    "content": "submitted by /u/mttd [link] [comments]",
+    "url": "https://www.reddit.com/r/programming/comments/1vz2tvh/flat_vs_segmented_memory_its_recursive/",
+    "engagement": 0,
+    "timestamp": "2026-08-26 16:58:51+00:00",
+    "tags": []
+  },
+  {
+    "source": "reddit",
+    "title": "DuckLabs to Join AWS, Projects to Remain Open Source",
+    "content": "submitted by /u/BluebirdDifficult260 [link] [comments]",
+    "url": "https://www.reddit.com/r/programming/comments/1vyxi4r/ducklabs_to_join_aws_projects_to_remain_open/",
+    "engagement": 0,
+    "timestamp": "2026-08-26 13:43:10+00:00",
+    "tags": []
+  },
+  {
+    "source": "reddit",
+    "title": "EVE Online: The Move to Python 3 Begins!",
+    "content": "submitted by /u/output_broadcast [link] [comments]",
+    "url": "https://www.reddit.com/r/programming/comments/1vxz0z4/eve_online_the_move_to_python_3_begins/",
+    "engagement": 0,
+    "timestamp": "2026-08-25 12:53:38+00:00",
+    "tags": []
+  },
+  {
+    "source": "reddit",
+    "title": "Problem with concurrent linter fixes",
+    "content": "submitted by /u/jfmengels [link] [comments]",
+    "url": "https://www.reddit.com/r/programming/comments/1vyw6tj/problem_with_concurrent_linter_fixes/",
+    "engagement": 0,
+    "timestamp": "2026-08-26 12:50:07+00:00",
+    "tags": []
+  },
+  {
+    "source": "reddit",
+    "title": "Latency optimizations on the system level",
+    "content": "submitted by /u/wineandcode [link] [comments]",
+    "url": "https://www.reddit.com/r/programming/comments/1vycpx9/latency_optimizations_on_the_system_level/",
+    "engagement": 0,
+    "timestamp": "2026-08-25 21:11:41+00:00",
+    "tags": []
+  },
+  {
+    "source": "reddit",
+    "title": "Memory ordering in CPUs",
+    "content": "submitted by /u/mttd [link] [comments]",
+    "url": "https://www.reddit.com/r/programming/comments/1vyb1js/memory_ordering_in_cpus/",
+    "engagement": 0,
+    "timestamp": "2026-08-25 20:11:46+00:00",
+    "tags": []
+  },
+  {
+    "source": "reddit",
+    "title": "How to test if your numerical code is Mathematically correct?",
+    "content": "submitted by /u/Lost-Dragonfruit-663 [link] [comments]",
+    "url": "https://www.reddit.com/r/programming/comments/1vy6tks/how_to_test_if_your_numerical_code_is/",
+    "engagement": 0,
+    "timestamp": "2026-08-25 17:43:44+00:00",
+    "tags": []
+  }
+]
