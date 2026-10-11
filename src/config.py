@@ -265,8 +265,10 @@ def load_settings(
         groq_max_tokens=_int("GROQ_MAX_TOKENS", 2048),
         groq_max_attempts=_int("GROQ_MAX_ATTEMPTS", 3),
         site_url=_str("SITE_URL", "").rstrip("/"),
-        brand_name=_str("BRAND_NAME", DEFAULT_BRAND_NAME),
-        brand_tagline=_str("BRAND_TAGLINE", DEFAULT_BRAND_TAGLINE),
+        # A blank/whitespace brand is not a brand: fall back rather than
+        # rendering an unnamed publication.
+        brand_name=_str("BRAND_NAME", DEFAULT_BRAND_NAME).strip() or DEFAULT_BRAND_NAME,
+        brand_tagline=_str("BRAND_TAGLINE", DEFAULT_BRAND_TAGLINE).strip() or DEFAULT_BRAND_TAGLINE,
         require_approval=_bool("REQUIRE_APPROVAL", True),
         enable_bluesky=_bool("ENABLE_BLUESKY", False),
         enable_telegram_channel=_bool("ENABLE_TELEGRAM_CHANNEL", False),

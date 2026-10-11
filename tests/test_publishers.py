@@ -120,7 +120,10 @@ def test_hashnode_variables_shape() -> None:
     variables = hashnode_variables(ARTICLE, settings)
     assert variables["input"]["publicationId"] == "pub-1"
     assert variables["input"]["originalArticleURL"].endswith("/posts/2026-01-01-hello")
-    assert variables["input"]["contentMarkdown"] == "Body."
+    # The syndicated body keeps the article and gains the publication
+    # attribution block (the brand split; see tests/test_branding.py).
+    assert variables["input"]["contentMarkdown"].startswith("Body.")
+    assert "Read more on Upwire" in variables["input"]["contentMarkdown"]
 
 
 # --- Mastodon --------------------------------------------------------------

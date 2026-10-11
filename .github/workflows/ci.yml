@@ -62,8 +62,11 @@ jobs:
         working-directory: site
         run: npm ci
 
-      - name: Build the site
+      - name: Build the site (bundles the brand guardrail)
+        # `npm run build` also runs check:brand, which fails if the internal
+        # engine name reaches dist/ or if the publication brand is missing.
         working-directory: site
         run: npm run build
         env:
           SITE_URL: ${{ vars.SITE_URL || 'https://example.com' }}
+          PUBLIC_BRAND_NAME: ${{ vars.BRAND_NAME || 'Upwire' }}

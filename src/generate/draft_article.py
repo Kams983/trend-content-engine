@@ -14,6 +14,10 @@ without treating it as a failure.
 The model is configurable via ``GROQ_MODEL`` / ``GROQ_MODEL_FALLBACK`` and the
 client handles 429s/timeouts with backoff before switching model (see
 :mod:`src.generate.llm`).
+
+The prompt is the one place the *publication* is named to the model: the voice
+rules stay brand-neutral and the engine substitutes ``BRAND_NAME`` /
+``BRAND_TAGLINE`` into the ``{{publication}}`` tokens at load time.
 """
 
 from __future__ import annotations
@@ -48,8 +52,19 @@ class DraftOutcome:
         return self.article is not None
 
 
-def load_system_prompt() -> str:
-    return _PROMPT_PATH.read_text(encoding="utf-8").strip()
+def load_system_prompt(settings: Settings | None = None) -> str:
+    """The system prompt, with the publication brand substituted into it.
+
+    The prompt file carries ``{{publication}}`` / ``{{tagline}}`` tokens, so the
+    model knows which publication it is writing for while the file itself names
+    no brand. Passing no *settings* leaves the tokens untouched.
+    """
+    text = _PROMPT_PATH.read_text(encoding="utf-8").strip()
+    if settings is None:
+        return text
+    return text.replace("{{publication}}", settings.brand_name).replace(
+        "{{tagline}}", settings.brand_tagline
+    )
 
 
 def build_source_block(cluster: list[dict]) -> str:
@@ -120,7 +135,7 @@ def produce_article(
     if not cluster:
         return DraftOutcome(errors=["empty cluster"], declined=True)
 
-    system = load_system_prompt()
+    system = load_system_prompt(settings)
     feedback: str | None = None
     last_errors: list[str] = ["no attempt made"]
 

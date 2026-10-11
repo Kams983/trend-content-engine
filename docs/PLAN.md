@@ -140,3 +140,16 @@ Run the full pytest suite after every phase.
   Cloudflare Pages deploy hook (`CF_DEPLOY_HOOK_URL`), because an article changes
   the `state` branch and nothing on `main` would otherwise rebuild the site. It
   is a logged no-op when the secret is not set.
+* **Public brand split from the engine name.** The engine keeps the name Trend
+  Content Engine (TCE) for everything internal — the repo, the package, the
+  tables, the `TCE_*` env prefix, the `state` branch, log lines, the tests and
+  these docs. Everything a reader can see is driven by `BRAND_NAME` /
+  `BRAND_TAGLINE` (plus `PUBLIC_BRAND_NAME` / `PUBLIC_BRAND_TAGLINE` for the site
+  build), defaulting to *Upwire*, defined once in `src/config.py` and once in
+  `site/src/lib/site.ts`. Outbound templates share a single attribution shape
+  (`Read more on <brand>: <url>`, `src/publish/base.py`), the site's identity flows
+  from `SITE.title` so one value renames the wordmark, titles, JSON-LD, RSS and OG
+  images, and the drafting prompt receives the brand through `{{publication}}`
+  tokens instead of hard-coding it. Two guardrails hold the line:
+  `tests/test_branding.py` in Python and `site/scripts/check-brand.mjs`, which
+  runs inside `npm run build` and fails if the engine name reaches `dist/`.

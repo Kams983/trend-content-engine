@@ -46,6 +46,8 @@ jobs:
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           SITE_URL: ${{ vars.SITE_URL }}
+          # Public brand (reader-facing) — used by every outbound post template.
+          BRAND_NAME: ${{ vars.BRAND_NAME || 'Upwire' }}
           REQUIRE_APPROVAL: "true"
           ENABLE_BLUESKY: ${{ vars.ENABLE_BLUESKY || 'false' }}
           ENABLE_TELEGRAM_CHANNEL: ${{ vars.ENABLE_TELEGRAM_CHANNEL || 'false' }}

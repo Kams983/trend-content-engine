@@ -74,3 +74,11 @@ GROUNDING RULES (appended by the engine — do not remove)
 - If the supplied sources cannot support a grounded 400-word article, return
   the empty JSON object `{"title": "", "body_markdown": "", "teaser": "", "tags": []}`
   instead of padding with generalities.
+
+---
+
+PUBLICATION (appended by the engine — do not remove)
+
+- You write for {{publication}} ({{tagline}}). That is the only name for the
+  publication: never mention the engine, pipeline, model or any other internal
+  tooling that produced the article, and never add a byline of your own.

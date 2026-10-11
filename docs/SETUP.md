@@ -32,7 +32,7 @@ torch wheels. The engine only ever runs on CPU.
 ## 2. Verify locally, offline, before touching any account
 
 ```bash
-python -m pytest -q                                    # 147 tests, no network
+python -m pytest -q                                    # 172 tests, no network
 python -m src.main --use-fixtures --dry-run             # full pipeline, nothing sent
 ```
 
@@ -74,6 +74,7 @@ Create the repo, push `main`. Then **Settings → Secrets and variables → Acti
 | Variable name | Example | Notes |
 | --- | --- | --- |
 | `SITE_URL` | `https://trend.example.com` | origin only, **no trailing slash** |
+| `BRAND_NAME` | `Upwire` | the publication name readers see; must match the site's `PUBLIC_BRAND_NAME` |
 | `GROQ_MODEL` | `openai/gpt-oss-120b` | optional; overrides the default |
 | `GROQ_MODEL_FALLBACK` | `openai/gpt-oss-20b` | optional |
 | `ENABLE_BLUESKY` | `false` | flip to `true` in step 9 |
@@ -151,6 +152,8 @@ subdomain (e.g. `trend.example.com`).
    | Name | Value |
    | --- | --- |
    | `SITE_URL` | `https://trend.example.com` |
+   | `PUBLIC_BRAND_NAME` | `Upwire` — must match the Actions variable `BRAND_NAME` |
+   | `PUBLIC_BRAND_TAGLINE` | `What's rising in tech and AI, with sources.` |
    | `PUBLIC_CF_ANALYTICS_TOKEN` | optional, see §11 |
    | `PUBLIC_BUTTONDOWN_USERNAME` | optional, see §11 |
 
@@ -208,7 +211,10 @@ boring.
    post appears on the site and that `publish-approved` reports `PUBLISHED`.
 5. **Site only** — with `SITE_URL` set and all `ENABLE_*` still `false`, let a
    real run publish. The deploy hook queues a fresh Pages build (check its log);
-   verify the page, its OG image, the RSS item and the canonical URL.
+   verify the page, its OG image, the RSS item and the canonical URL — and that
+   the wordmark, `<title>`, JSON-LD, RSS and OG image all read the publication
+   brand (`BRAND_NAME` / `PUBLIC_BRAND_NAME`) and never the engine name. The
+   site build enforces the second half with `check:brand` (§12).
 6. **Enable social targets one at a time** — flip exactly one of
    `ENABLE_TELEGRAM_CHANNEL`, `ENABLE_BLUESKY`, `ENABLE_DEVTO`, `ENABLE_MASTODON`
    (and `ENABLE_HASHNODE` only if you have Pro), run `publish-approved`
@@ -221,6 +227,11 @@ boring.
 9. **Alert drill** — temporarily break something (e.g. remove
    `GROQ_API_KEY` from one manual run) and confirm the `if: failure()` step
    posts a Telegram alert even when Python itself failed.
+10. **Rebrand drill** — set `BRAND_NAME` and `PUBLIC_BRAND_NAME` to any other
+    value, run `npm run build` in `site/`, and run `publish-approved` manually
+    with `DRY_RUN=true` (or read the `dry_run_publish` log lines). The whole
+    reader-facing surface — titles, JSON-LD, RSS, OG images, social posts — must
+    change together, and the engine name must still appear nowhere.
 
 ## 10. Scheduled-workflow caveat
 
@@ -253,4 +264,5 @@ not affected by that rule.
 | Push of the `state` branch fails | token/permission problem | confirm `contents: write` is still granted to the workflow |
 | Site shows no posts | state not restored, or no rebuild triggered | check the restore step in the build command and the `CF_DEPLOY_HOOK_URL` secret (§7) |
 | `git restore --source=state` fails | first ever run, no branch yet | expected no-op; ignore |
+| Site build fails in `check:brand` | an engine name reached `dist/`, or the brand is missing from it | reader-facing text must come from the brand (`PUBLIC_BRAND_NAME` / `src/lib/site.ts`); fix the leaking template or comment |
 | Every run is `startup_failure` with no jobs | GitHub blocked the run — account payments failed or the Actions spending limit is reached | fix Billing & plans (payment method, Actions spending limit), then re-run the workflow |

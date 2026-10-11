@@ -9,6 +9,24 @@ once per day.
 Everything is small pure-function modules, plain Python, `requests` for HTTP and
 SQLite for state. No web framework, no ORM, no queue.
 
+### Naming: the engine is not the publication
+
+Two names, deliberately kept apart:
+
+* **Trend Content Engine (TCE)** — the engine. Everything internal: this repo,
+  the Python package, the SQLite tables, the `state` branch, log lines, the test
+  suite, [docs/PLAN.md](docs/PLAN.md) and [docs/SETUP.md](docs/SETUP.md).
+* **The publication brand** — everything a reader can see: the wordmark, page
+  titles, meta tags, JSON-LD, RSS, OG images, the 404 page and every outbound
+  post. It defaults to **Upwire**, and is set by `BRAND_NAME` / `BRAND_TAGLINE`
+  (plus `PUBLIC_BRAND_NAME` / `PUBLIC_BRAND_TAGLINE` for the site build).
+
+The default brand is defined in exactly one place, `src/config.py`; every other
+module reads `settings.brand_name`, and the site reads its `PUBLIC_*` pair in
+`site/src/lib/site.ts`. Two guardrails keep the split honest: `tests/test_branding.py`
+asserts no outbound template can carry an engine name, and `npm run build`
+(which includes `check:brand`) fails the build if one reaches `dist/`.
+
 ---
 
 ## Architecture
@@ -114,6 +132,7 @@ The important ones:
 | `REQUIRE_APPROVAL` | `true` | wait for Telegram approve/reject before publishing |
 | `DRY_RUN` | `false` | do everything except outbound posts |
 | `SITE_URL` | — | absolute site URL, used for links |
+| `BRAND_NAME` / `BRAND_TAGLINE` | `Upwire` / `What's rising in tech and AI, with sources.` | the publication readers see (must match the site's `PUBLIC_BRAND_*`) |
 | `ENABLE_BLUESKY` / `ENABLE_TELEGRAM_CHANNEL` / `ENABLE_DEVTO` | `false` | social targets |
 | `ENABLE_HASHNODE` / `ENABLE_MASTODON` | `false` | optional targets |
 | `TELEGRAM_BOT_TOKEN` / `TELEGRAM_ADMIN_CHAT_ID` | — | approval + alerts |

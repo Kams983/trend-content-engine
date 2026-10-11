@@ -56,6 +56,8 @@ jobs:
           GROQ_MODEL: ${{ vars.GROQ_MODEL || 'openai/gpt-oss-120b' }}
           GROQ_MODEL_FALLBACK: ${{ vars.GROQ_MODEL_FALLBACK || 'openai/gpt-oss-20b' }}
           SITE_URL: ${{ vars.SITE_URL }}
+          # Public brand (reader-facing). Must match the site's PUBLIC_BRAND_NAME.
+          BRAND_NAME: ${{ vars.BRAND_NAME || 'Upwire' }}
           REQUIRE_APPROVAL: "true"
           ENABLE_BLUESKY: ${{ vars.ENABLE_BLUESKY || 'false' }}
           ENABLE_TELEGRAM_CHANNEL: ${{ vars.ENABLE_TELEGRAM_CHANNEL || 'false' }}
