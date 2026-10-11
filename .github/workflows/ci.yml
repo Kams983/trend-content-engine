@@ -1,0 +1,69 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  python:
+    name: pytest
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies (CPU-only torch)
+        run: |
+          python -m pip install --upgrade pip
+          pip install --extra-index-url https://download.pytorch.org/whl/cpu -r requirements.txt
+
+      - name: Run the test suite
+        # Hermetic: no network, no model download (fixtures + injected encoder).
+        run: python -m pytest -q
+
+      - name: Offline end-to-end smoke test
+        run: python -m src.main --use-fixtures --dry-run
+        env:
+          DB_PATH: ${{ runner.temp }}/smoke.sqlite
+          CONTENT_POSTS_DIR: ${{ runner.temp }}/smoke-posts
+
+  site:
+    name: astro build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Restore generated posts (if the state branch exists)
+        run: |
+          git fetch --depth=1 origin state:state 2>/dev/null || { echo "no state branch yet; building with no posts"; exit 0; }
+          git restore --source=state -- site/content/posts 2>/dev/null || true
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+
+      - name: Install site dependencies
+        working-directory: site
+        run: npm ci
+
+      - name: Build the site
+        working-directory: site
+        run: npm run build
+        env:
+          SITE_URL: ${{ vars.SITE_URL || 'https://example.com' }}

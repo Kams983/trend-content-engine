@@ -1,0 +1,83 @@
+name: publish-approved
+
+# Stage B: process Telegram approve/reject callbacks, then publish every approved
+# article to every enabled target exactly once. Runs hourly so approvals are
+# picked up promptly; it is also the run that makes same-day reruns no-ops.
+
+on:
+  schedule:
+    - cron: "37 * * * *"
+  workflow_dispatch:
+
+# Same group as daily.yml: the two workflows must never overlap.
+concurrency:
+  group: tce-state
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      TZ: UTC
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies (CPU-only torch)
+        run: |
+          python -m pip install --upgrade pip
+          pip install --extra-index-url https://download.pytorch.org/whl/cpu -r requirements.txt
+
+      - name: Restore engine state
+        run: python -m src.state.persist restore
+
+      - name: Process approvals and publish
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          SITE_URL: ${{ vars.SITE_URL }}
+          REQUIRE_APPROVAL: "true"
+          ENABLE_BLUESKY: ${{ vars.ENABLE_BLUESKY || 'false' }}
+          ENABLE_TELEGRAM_CHANNEL: ${{ vars.ENABLE_TELEGRAM_CHANNEL || 'false' }}
+          ENABLE_DEVTO: ${{ vars.ENABLE_DEVTO || 'false' }}
+          ENABLE_HASHNODE: ${{ vars.ENABLE_HASHNODE || 'false' }}
+          ENABLE_MASTODON: ${{ vars.ENABLE_MASTODON || 'false' }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHANNEL_ID: ${{ secrets.TELEGRAM_CHANNEL_ID }}
+          TELEGRAM_ADMIN_CHAT_ID: ${{ secrets.TELEGRAM_ADMIN_CHAT_ID }}
+          BLUESKY_HANDLE: ${{ secrets.BLUESKY_HANDLE }}
+          BLUESKY_APP_PASSWORD: ${{ secrets.BLUESKY_APP_PASSWORD }}
+          DEVTO_API_KEY: ${{ secrets.DEVTO_API_KEY }}
+          HASHNODE_API_KEY: ${{ secrets.HASHNODE_API_KEY }}
+          HASHNODE_PUBLICATION_ID: ${{ secrets.HASHNODE_PUBLICATION_ID }}
+          MASTODON_INSTANCE: ${{ secrets.MASTODON_INSTANCE }}
+          MASTODON_ACCESS_TOKEN: ${{ secrets.MASTODON_ACCESS_TOKEN }}
+        run: python -m src.main --mode publish
+
+      - name: Save engine state
+        run: |
+          python -m src.state.persist save --message "state: publish run $(date -u +%Y-%m-%dT%H:%MZ)"
+
+      - name: Alert on failure
+        if: failure()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_ADMIN_CHAT_ID: ${{ secrets.TELEGRAM_ADMIN_CHAT_ID }}
+        run: |
+          if [ -z "${TELEGRAM_BOT_TOKEN}" ] || [ -z "${TELEGRAM_ADMIN_CHAT_ID}" ]; then
+            echo "Telegram secrets not configured; no alert sent."
+            exit 0
+          fi
+          curl -fsS -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            --data-urlencode "chat_id=${TELEGRAM_ADMIN_CHAT_ID}" \
+            --data-urlencode "text=⚠️ TCE publish failed (run ${GITHUB_RUN_ID}). See ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
+            -o /dev/null

@@ -1,0 +1,100 @@
+name: daily-draft
+
+# Stage A: ingest -> cluster -> score -> draft -> validate -> store the draft.
+# Approval and publishing happen in publish.yml so a human can review first.
+
+on:
+  schedule:
+    # 07:17 UTC every day (offset from the top of the hour to avoid the cron rush).
+    - cron: "17 7 * * *"
+  workflow_dispatch:
+    inputs:
+      use_fixtures:
+        description: "Read the frozen fixtures instead of live sources"
+        type: boolean
+        default: false
+      dry_run:
+        description: "Run everything but send/write nothing"
+        type: boolean
+        default: false
+
+# Both state-writing workflows share one group so they can never overlap.
+concurrency:
+  group: tce-state
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  draft:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      TZ: UTC
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies (CPU-only torch)
+        run: |
+          python -m pip install --upgrade pip
+          pip install --extra-index-url https://download.pytorch.org/whl/cpu -r requirements.txt
+
+      - name: Restore engine state from the state branch
+        run: python -m src.state.persist restore
+
+      - name: Run stage A
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GROQ_MODEL: ${{ vars.GROQ_MODEL || 'openai/gpt-oss-120b' }}
+          GROQ_MODEL_FALLBACK: ${{ vars.GROQ_MODEL_FALLBACK || 'openai/gpt-oss-20b' }}
+          SITE_URL: ${{ vars.SITE_URL }}
+          REQUIRE_APPROVAL: "true"
+          ENABLE_BLUESKY: ${{ vars.ENABLE_BLUESKY || 'false' }}
+          ENABLE_TELEGRAM_CHANNEL: ${{ vars.ENABLE_TELEGRAM_CHANNEL || 'false' }}
+          ENABLE_DEVTO: ${{ vars.ENABLE_DEVTO || 'false' }}
+          ENABLE_HASHNODE: ${{ vars.ENABLE_HASHNODE || 'false' }}
+          ENABLE_MASTODON: ${{ vars.ENABLE_MASTODON || 'false' }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHANNEL_ID: ${{ secrets.TELEGRAM_CHANNEL_ID }}
+          TELEGRAM_ADMIN_CHAT_ID: ${{ secrets.TELEGRAM_ADMIN_CHAT_ID }}
+          BLUESKY_HANDLE: ${{ secrets.BLUESKY_HANDLE }}
+          BLUESKY_APP_PASSWORD: ${{ secrets.BLUESKY_APP_PASSWORD }}
+          DEVTO_API_KEY: ${{ secrets.DEVTO_API_KEY }}
+          HASHNODE_API_KEY: ${{ secrets.HASHNODE_API_KEY }}
+          HASHNODE_PUBLICATION_ID: ${{ secrets.HASHNODE_PUBLICATION_ID }}
+          MASTODON_INSTANCE: ${{ secrets.MASTODON_INSTANCE }}
+          MASTODON_ACCESS_TOKEN: ${{ secrets.MASTODON_ACCESS_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          EXTRA=""
+          if [ "${{ inputs.use_fixtures }}" = "true" ]; then EXTRA="$EXTRA --use-fixtures"; fi
+          if [ "${{ inputs.dry_run }}" = "true" ]; then EXTRA="$EXTRA --dry-run"; fi
+          python -m src.main --mode draft $EXTRA
+
+      - name: Save engine state (single-commit orphan force-push)
+        if: "${{ !inputs.dry_run }}"
+        run: |
+          python -m src.state.persist save --message "state: daily draft $(date -u +%Y-%m-%dT%H:%MZ)"
+
+      - name: Alert on failure
+        if: failure()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_ADMIN_CHAT_ID: ${{ secrets.TELEGRAM_ADMIN_CHAT_ID }}
+        run: |
+          if [ -z "${TELEGRAM_BOT_TOKEN}" ] || [ -z "${TELEGRAM_ADMIN_CHAT_ID}" ]; then
+            echo "Telegram secrets not configured; no alert sent."
+            exit 0
+          fi
+          curl -fsS -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            --data-urlencode "chat_id=${TELEGRAM_ADMIN_CHAT_ID}" \
+            --data-urlencode "text=⚠️ TCE daily-draft failed (run ${GITHUB_RUN_ID}). See ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
+            -o /dev/null
