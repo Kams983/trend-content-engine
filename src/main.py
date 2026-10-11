@@ -60,7 +60,7 @@ def main(argv: list[str] | None = None) -> int:
     except ConfigError as exc:
         # A missing key must be loud and list every problem at once.
         print(f"\nConfiguration error\n{exc}\n", file=sys.stderr)
-        logger.error(kv("config_invalid", problems=len(str(exc).splitlines()) - 1))
+        logger.error(kv("config_invalid", problems=len(exc.problems)))
         return 2
 
     if settings.use_fixtures:

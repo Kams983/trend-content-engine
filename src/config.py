@@ -25,7 +25,14 @@ DEFAULT_GROQ_MODEL_FALLBACK = "openai/gpt-oss-20b"
 
 
 class ConfigError(RuntimeError):
-    """Raised at startup when required configuration is missing or invalid."""
+    """Raised at startup when required configuration is missing or invalid.
+
+    ``problems`` holds one ``KEY: reason`` string per missing/invalid setting.
+    """
+
+    def __init__(self, message: str, problems: list[str] | None = None) -> None:
+        super().__init__(message)
+        self.problems = list(problems or [])
 
 
 # ---------------------------------------------------------------------------
@@ -374,7 +381,9 @@ def validate_settings(settings: Settings) -> None:
     if not problems:
         return
     listing = "\n".join(f"  - {p}" for p in problems)
+    plural = "problem" if len(problems) == 1 else "problems"
     raise ConfigError(
-        f"Configuration is incomplete — {len(problems)} problem(s):\n{listing}\n"
-        f"Copy .env.example to .env and fill in the values, or set them in the environment."
+        f"Configuration is incomplete — {len(problems)} {plural}:\n{listing}\n"
+        f"Copy .env.example to .env and fill in the values, or set them in the environment.",
+        problems=problems,
     )
