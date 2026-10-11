@@ -85,7 +85,21 @@ Full manual setup (accounts, secrets, DNS, rollout) is in [docs/SETUP.md](docs/S
 | `python -m src.main` | Full pipeline (stage A + B). |
 
 Same-day reruns are safe: every publish is recorded in `publications` and
-skipped on the second attempt.
+skipped on the second attempt, and stage A refuses to draft a second article for
+the same UTC day.
+
+`TCE_OFFLINE=1` forces the deterministic stub writer (no Groq key needed) so you
+can exercise the whole pipeline locally.
+
+Engine state (the SQLite database and `site/content/posts`) lives on a
+single-commit `state` branch. CI moves it in and out with:
+
+```bash
+python -m src.state.persist restore   # before the pipeline
+python -m src.state.persist save      # after it (force-pushes refs/heads/state)
+```
+
+Local development quickstart: [docs/SETUP.md](docs/SETUP.md)
 
 ## Environment variables
 
@@ -95,6 +109,7 @@ The important ones:
 | Key | Default | Purpose |
 | --- | --- | --- |
 | `GROQ_API_KEY` | — | LLM access (required unless offline smoke test) |
+| `TCE_OFFLINE` | `false` | force the deterministic stub writer (no key, no network) |
 | `GROQ_MODEL` / `GROQ_MODEL_FALLBACK` | `openai/gpt-oss-120b` / `openai/gpt-oss-20b` | chat models |
 | `REQUIRE_APPROVAL` | `true` | wait for Telegram approve/reject before publishing |
 | `DRY_RUN` | `false` | do everything except outbound posts |
