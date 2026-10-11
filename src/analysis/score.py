@@ -1,143 +1,228 @@
-"""Score clusters by velocity and novelty against a trend history store.
+"""Score and rank clusters by topic identity, velocity, novelty and richness.
 
-The store is a SQLite database (``trend_store.sqlite``) with a single
-table ``topic_history``:
+Score
+-----
+``score = w_velocity*velocity + w_novelty*novelty
+         + w_size*log1p(item_count) + w_sources*distinct_sources
+         + w_engagement*mean_engagement_percentile``
 
-    CREATE TABLE IF NOT EXISTS topic_history (
-        id          INTEGER PRIMARY KEY AUTOINCREMENT,
-        topic       TEXT    NOT NULL,   -- cluster label (first item title)
-        source      TEXT    NOT NULL,
-        item_count  INTEGER NOT NULL,
-        timestamp   TEXT    NOT NULL    -- ISO-8601
-    );
+* ``velocity`` — today's item count divided by the mean daily count over the
+  last 7 days **for the same topic_id** (default 1.0 only when there is no
+  history at all). The mean is taken over the days the topic was actually seen,
+  which keeps intermittent sources from producing absurd spikes.
+* ``novelty`` — 1 when the ``topic_id`` is new this run, else 0.
+* ``engagement`` — per-source percentile rank, averaged over the cluster, so
+  Hacker News points cannot swamp arXiv author counts.
 
-Velocity:  today_count / avg_daily_count(last 7 days).
-Novelty:   1.0 if topic never seen before, else 0.0.
-Combined:  velocity + 2 * novelty (novelty gets double weight).
+Eligibility: at least ``MIN_CLUSTER_ITEMS`` items from at least
+``MIN_CLUSTER_SOURCES`` distinct sources, and not inside the publish cooldown
+(unless velocity clears the override).
 """
 
+from __future__ import annotations
+
 import logging
+import math
 import sqlite3
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
+from typing import Any
+
+from ..config import Settings
+from ..state import repo
+from ..util.logging_setup import kv
+from . import topics as topics_mod
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_DB = Path(__file__).resolve().parent.parent.parent / "trend_store.sqlite"
-RETENTION_DAYS = 7
+
+# ---------------------------------------------------------------------------
+# Engagement: per-source percentile ranks
+# ---------------------------------------------------------------------------
 
 
-def _connect(db_path: Path | str) -> sqlite3.Connection:
-    conn = sqlite3.connect(str(db_path))
-    conn.execute(
-        """CREATE TABLE IF NOT EXISTS topic_history (
-               id         INTEGER PRIMARY KEY AUTOINCREMENT,
-               topic      TEXT    NOT NULL,
-               source     TEXT    NOT NULL,
-               item_count INTEGER NOT NULL,
-               timestamp  TEXT    NOT NULL
-           )"""
-    )
-    conn.commit()
-    return conn
+def _item_key(item: dict) -> tuple[str, str]:
+    return (item.get("source", "?"), item.get("url") or item.get("title", ""))
 
 
-def _cluster_label(cluster: list[dict]) -> str:
-    """Return a short label for a cluster (first item's title, truncated)."""
+def engagement_percentiles(all_items: list[dict]) -> dict[tuple[str, str], float]:
+    """Percentile rank (0..1) of each item's engagement within its own source."""
+    by_source: dict[str, list[tuple[float, tuple[str, str]]]] = {}
+    for item in all_items:
+        by_source.setdefault(item.get("source", "?"), []).append(
+            (float(item.get("engagement") or 0), _item_key(item))
+        )
+
+    ranks: dict[tuple[str, str], float] = {}
+    for entries in by_source.values():
+        entries.sort(key=lambda e: e[0])
+        n = len(entries)
+        # Average rank for ties so identical scores get identical percentiles.
+        i = 0
+        while i < n:
+            j = i
+            while j + 1 < n and entries[j + 1][0] == entries[i][0]:
+                j += 1
+            # Fraction of items strictly below, midpoint of the tie block.
+            percentile = (i + j) / 2 / (n - 1) if n > 1 else 0.5
+            for k in range(i, j + 1):
+                ranks[entries[k][1]] = percentile
+            i = j + 1
+    return ranks
+
+
+def _cluster_engagement(cluster: list[dict], percentiles: dict[tuple[str, str], float]) -> float:
     if not cluster:
-        return "empty"
-    return cluster[0].get("title", "untitled")[:80]
+        return 0.0
+    return sum(percentiles.get(_item_key(it), 0.0) for it in cluster) / len(cluster)
 
 
-def _cluster_sources(cluster: list[dict]) -> str:
-    """Comma-separated unique sources in the cluster."""
-    return ",".join(sorted({it.get("source", "?") for it in cluster}))
+# ---------------------------------------------------------------------------
+# Velocity / novelty
+# ---------------------------------------------------------------------------
 
 
-def _velocity_score(conn: sqlite3.Connection, topic: str, today_count: int) -> float:
-    """today_count / avg_daily_count over the last 7 days. Returns 1.0 if no history."""
-    cutoff = (datetime.now(timezone.utc) - timedelta(days=RETENTION_DAYS)).isoformat()
-    row = conn.execute(
-        "SELECT SUM(item_count), COUNT(*) FROM topic_history "
-        "WHERE topic = ? AND timestamp >= ?",
-        (topic, cutoff),
-    ).fetchone()
-    total_7d, days_seen = row[0] or 0, row[1] or 0
-    if days_seen == 0:
-        return 1.0  # brand-new topic, treat as high velocity
-    avg = total_7d / days_seen
-    return today_count / max(avg, 0.1)
-
-
-def _novelty_score(conn: sqlite3.Connection, topic: str) -> float:
-    """1.0 if the topic has never appeared before, else 0.0."""
-    row = conn.execute(
-        "SELECT COUNT(*) FROM topic_history WHERE topic = ?",
-        (topic,),
-    ).fetchone()
-    return 0.0 if (row[0] or 0) else 1.0
-
-
-def _store_today(
+def velocity_for(
     conn: sqlite3.Connection,
-    topic: str,
-    source: str,
-    item_count: int,
-    today: str,
-) -> None:
-    conn.execute(
-        "INSERT INTO topic_history (topic, source, item_count, timestamp) "
-        "VALUES (?, ?, ?, ?)",
-        (topic, source, item_count, today),
-    )
+    topic_id: int,
+    today_count: int,
+    settings: Settings,
+    now: datetime | None = None,
+) -> tuple[float, int]:
+    """Return ``(velocity, history_days)`` for a topic.
 
-
-def score(
-    clusters: list[list[dict]],
-    top_n: int = 10,
-    db_path: Path | str | None = None,
-) -> list[dict]:
-    """Score and rank clusters, then store today's data for future runs.
-
-    Returns a list of dicts sorted by combined score (descending), each:
-        {
-            "label":       str,
-            "sources":     str,
-            "count":       int,
-            "velocity":    float,
-            "novelty":     float,
-            "score":       float,
-            "items":       list[dict],
-        }
+    ``history_days == 0`` means no prior history, in which case velocity is 1.0.
     """
-    db = Path(db_path) if db_path else DEFAULT_DB
-    conn = _connect(db)
-    today = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S+00:00")
+    now = now or datetime.now(timezone.utc)
+    since = (now - timedelta(days=7)).strftime("%Y-%m-%d")
+    today = now.strftime("%Y-%m-%d")
+    counts = repo.observation_counts(conn, topic_id, since, before_day=today)
+    if not counts:
+        return 1.0, 0
+    avg = sum(counts) / len(counts)
+    return float(today_count) / max(avg, 0.1), len(counts)
+
+
+def in_cooldown(conn: sqlite3.Connection, topic_id: int, settings: Settings, now: datetime | None = None) -> bool:
+    """True when the topic was published inside the cooldown window."""
+    now = now or datetime.now(timezone.utc)
+    last = repo.last_published_at(conn, topic_id)
+    if not last:
+        return False
+    try:
+        when = datetime.fromisoformat(last)
+    except ValueError:
+        return False
+    if when.tzinfo is None:
+        when = when.replace(tzinfo=timezone.utc)
+    return (now - when) < timedelta(days=settings.cooldown_days)
+
+
+# ---------------------------------------------------------------------------
+# Scoring
+# ---------------------------------------------------------------------------
+
+
+def score_clusters(
+    conn: sqlite3.Connection,
+    clusters: list[list[dict]],
+    all_items: list[dict],
+    settings: Settings,
+    now: datetime | None = None,
+) -> list[dict]:
+    """Score, rank and persist today's clusters. Returns the ranked list.
+
+    Each entry::
+
+        {"topic_id", "label", "sources" (list), "count", "velocity", "novelty",
+         "size_term", "engagement", "score", "eligible", "ineligibility_reason",
+         "is_new", "items"}
+    """
+    now = now or datetime.now(timezone.utc)
+    if not clusters:
+        return []
+
+    percentiles = engagement_percentiles(all_items)
+    assigned = topics_mod.assign_topics(conn, clusters, settings, now=now)
+    weights = settings.score_weights()
 
     ranked: list[dict] = []
-    for cluster in clusters:
-        label = _cluster_label(cluster)
-        sources = _cluster_sources(cluster)
-        count = len(cluster)
+    for info in assigned:
+        count = len(info["items"])
+        source_count = info["source_count"]
+        vel, history_days = velocity_for(conn, info["topic_id"], count, settings, now=now)
+        novelty = 1.0 if info["is_new"] else 0.0
+        size_term = math.log1p(count)
+        engagement = _cluster_engagement(info["items"], percentiles)
 
-        vel = _velocity_score(conn, label, count)
-        nov = _novelty_score(conn, label)
-        combined = vel + 2.0 * nov
+        score = (
+            weights["velocity"] * vel
+            + weights["novelty"] * novelty
+            + weights["size"] * size_term
+            + weights["sources"] * source_count
+            + weights["engagement"] * engagement
+        )
 
-        _store_today(conn, label, sources, count, today)
+        reason = ""
+        if count < settings.min_cluster_items:
+            reason = "too_few_items"
+        elif source_count < settings.min_cluster_sources:
+            reason = "too_few_sources"
+        elif in_cooldown(conn, info["topic_id"], settings, now=now) and vel < settings.cooldown_velocity_override:
+            reason = "cooldown"
 
-        ranked.append({
-            "label": label,
-            "sources": sources,
-            "count": count,
-            "velocity": round(vel, 3),
-            "novelty": round(nov, 3),
-            "score": round(combined, 3),
-            "items": cluster,
-        })
+        ranked.append(
+            {
+                "topic_id": info["topic_id"],
+                "label": info["label"],
+                "sources": info["sources"],
+                "count": count,
+                "velocity": round(vel, 3),
+                "novelty": novelty,
+                "size_term": round(size_term, 3),
+                "engagement": round(engagement, 3),
+                "history_days": history_days,
+                "score": round(score, 4),
+                "eligible": reason == "",
+                "ineligibility_reason": reason,
+                "is_new": info["is_new"],
+                "items": info["items"],
+            }
+        )
 
-    conn.commit()
-    conn.close()
+    # Deterministic ordering: score, then richness, then topic_id.
+    ranked.sort(key=lambda d: (-d["score"], -d["count"], -len(d["sources"]), d["topic_id"]))
 
-    ranked.sort(key=lambda d: d["score"], reverse=True)
-    return ranked[:top_n]
+    # Persist today's observations (after velocity was computed) and prune old topics.
+    today = now.strftime("%Y-%m-%d")
+    for entry in ranked:
+        repo.record_observation(
+            conn,
+            topic_id=entry["topic_id"],
+            day=today,
+            item_count=entry["count"],
+            source_count=len(entry["sources"]),
+            sources=",".join(entry["sources"]),
+            when=now.isoformat(),
+        )
+    topics_mod.prune(conn, settings, now=now)
+
+    eligible = sum(1 for d in ranked if d["eligible"])
+    top = ranked[0] if ranked else None
+    logger.info(
+        kv(
+            "scored",
+            clusters=len(ranked),
+            eligible=eligible,
+            top_label=(top["label"][:50] if top else ""),
+            top_score=(top["score"] if top else 0),
+            top_items=(top["count"] if top else 0),
+            top_sources=(len(top["sources"]) if top else 0),
+        )
+    )
+    return ranked
+
+
+def eligible_clusters(ranked: list[dict], limit: int | None = None) -> list[dict[str, Any]]:
+    """Return only the eligible entries, in ranked order."""
+    out = [d for d in ranked if d.get("eligible")]
+    return out[:limit] if limit else out

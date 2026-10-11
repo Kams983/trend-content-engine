@@ -1,66 +1,92 @@
-"""Write an article dict to site/content/posts/YYYY-MM-DD-slug.md.
+"""Write an article to ``site/content/posts/<slug>.md`` with full frontmatter.
 
-Slug is derived from the title: lowercase, non-alphanumeric → hyphen,
-collapsed, trimmed.  Frontmatter includes title, date, and tags.
+The Astro content schema (see ``site/src/content.config.ts``) requires
+``title``, ``description``, ``tags``, ``ai_assisted``, ``sources``, ``slug`` and
+``topic_id``; a malformed post fails the site build, which is intentional.
 """
 
+from __future__ import annotations
+
+import json
 import logging
-import re
 from datetime import datetime, timezone
 from pathlib import Path
 
+from .base import PublishResult, as_publication_article, post_url
+
 logger = logging.getLogger(__name__)
 
-POSTS_DIR = Path(__file__).resolve().parent.parent.parent / "site" / "content" / "posts"
+
+def _yaml_str(value: str) -> str:
+    """A double-quoted YAML scalar (JSON strings are valid YAML)."""
+    return json.dumps(str(value), ensure_ascii=False)
 
 
-def _slugify(title: str) -> str:
-    """Convert title to a URL-friendly slug."""
-    slug = title.lower()
-    slug = re.sub(r"[^a-z0-9]+", "-", slug)
-    slug = slug.strip("-")
-    slug = re.sub(r"-{2,}", "-", slug)
-    return slug[:80]
+def build_frontmatter(article: dict, date: datetime | None = None) -> str:
+    """Render YAML frontmatter for the Astro content collection."""
+    dt = date or article.get("date") or datetime.now(timezone.utc)
+    if isinstance(dt, str):
+        dt = datetime.fromisoformat(dt)
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+
+    tags = [str(t) for t in (article.get("tags") or [])]
+    lines = [
+        "---",
+        f"title: {_yaml_str(article.get('title', ''))}",
+        f"description: {_yaml_str(article.get('description', ''))}",
+        f"date: {dt.isoformat()}",
+        f"slug: {_yaml_str(article.get('slug', ''))}",
+        f"topic_id: {int(article.get('topic_id') or 0)}",
+        "ai_assisted: true",
+        "tags:",
+    ]
+    if tags:
+        lines.extend(f"  - {_yaml_str(t)}" for t in tags)
+    else:
+        lines.append("  - untagged")
+    lines.append("sources:")
+    sources = article.get("sources") or []
+    if sources:
+        for item in sources:
+            lines.append(f"  - title: {_yaml_str(item.get('title', ''))}")
+            lines.append(f"    url: {_yaml_str(item.get('url', ''))}")
+            lines.append(f"    source: {_yaml_str(item.get('source', ''))}")
+    else:
+        lines.append("  - title: \"Unknown\"")
+        lines.append("    url: \"\"")
+        lines.append("    source: \"\"")
+    lines.append("---")
+    lines.append("")
+    return "\n".join(lines)
 
 
-def site_publisher(article: dict, date: datetime | None = None) -> Path | None:
-    """Write article as a markdown file with frontmatter.
-
-    Returns the path written, or None on failure.
-    """
-    title = article.get("title", "")
-    body = article.get("body_markdown", "")
-    tags = article.get("tags", [])
-
-    if not title or not body:
-        logger.warning("Empty title or body — skipping site publish")
+def write_post(article: dict, settings, date: datetime | None = None) -> Path | None:
+    """Write the markdown file. Returns its path, or ``None`` on failure."""
+    title = (article.get("title") or "").strip()
+    body = (article.get("body_markdown") or "").strip()
+    slug = (article.get("slug") or "").strip()
+    if not title or not body or not slug:
+        logger.warning("event=site_publish_skipped reason=empty_fields title=%s slug=%s", bool(title), bool(slug))
         return None
 
-    dt = date or datetime.now(timezone.utc)
-    date_str = dt.strftime("%Y-%m-%d")
-    slug = _slugify(title)
-    filename = f"{date_str}-{slug}.md"
-
+    posts_dir = Path(settings.content_posts_dir)
     try:
-        POSTS_DIR.mkdir(parents=True, exist_ok=True)
+        posts_dir.mkdir(parents=True, exist_ok=True)
+        path = posts_dir / f"{slug}.md"
+        path.write_text(build_frontmatter(article, date) + body + "\n", encoding="utf-8")
     except OSError as exc:
-        logger.error("Could not create posts dir: %s", exc)
+        logger.error("event=site_publish_failed error=%s", exc)
         return None
+    logger.info("event=site_publish_ok path=%s", path)
+    return path
 
-    tag_line = ", ".join(f'"{t}"' for t in tags) if tags else ""
-    frontmatter = (
-        f"---\n"
-        f'title: "{title}"\n'
-        f"date: {dt.isoformat()}\n"
-        f"tags: [{tag_line}]\n"
-        f"---\n\n"
-    )
 
-    path = POSTS_DIR / filename
-    try:
-        path.write_text(frontmatter + body, encoding="utf-8")
-        logger.info("Wrote %s", path)
-        return path
-    except OSError as exc:
-        logger.error("Failed to write %s: %s", path, exc)
-        return None
+def site_publisher(article: dict, settings) -> PublishResult:
+    """Publisher entry point: write the post file for the static site."""
+    slug = article.get("slug") or ""
+    enriched = as_publication_article(article, slug, settings)
+    path = write_post(enriched, settings)
+    if path is None:
+        return PublishResult(target="site", ok=False, error="could not write post file")
+    return PublishResult(target="site", ok=True, url=post_url(settings, slug), external_id=str(path))

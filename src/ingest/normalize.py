@@ -7,113 +7,89 @@ Common schema:
         "content":      str,
         "url":          str,
         "engagement":   int,
-        "timestamp":    datetime,
+        "timestamp":    datetime,   # always UTC-aware
         "tags":         list[str],
     }
 """
 
-import re
+from __future__ import annotations
+
+import logging
 from datetime import datetime, timezone
-from html.parser import HTMLParser
-from typing import Any
+from typing import Any, Callable
 
-_vlog: Any = None  # lazy import to avoid circulars
+from ..util.text import strip_html
 
-
-def _log():
-    global _vlog
-    if _vlog is None:
-        import logging
-        _vlog = logging.getLogger(__name__)
-    return _vlog
+logger = logging.getLogger(__name__)
 
 
-class _HTMLStripper(HTMLParser):
-    """Minimal stdlib HTML-to-text converter."""
-    def __init__(self) -> None:
-        super().__init__()
-        self._parts: list[str] = []
-    def handle_data(self, data: str) -> None:
-        self._parts.append(data)
-    def get_text(self) -> str:
-        return " ".join(self._parts)
+def _parse_ts(value: Any) -> datetime:
+    """Parse an ISO-8601 timestamp into an aware UTC datetime."""
+    if isinstance(value, datetime):
+        return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+    if not value:
+        return datetime.now(timezone.utc)
+    text = str(value).strip()
+    try:
+        parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError:
+        return datetime.now(timezone.utc)
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
 
-
-def _strip_html(raw: str) -> str:
-    """Remove HTML tags, collapse whitespace, strip entities."""
-    if "<" not in raw and "&" not in raw:
-        return raw  # fast path: no tags or entities
-    s = _HTMLStripper()
-    s.feed(raw)
-    text = s.get_text()
-    text = re.sub(r"&[a-zA-Z]+;|&#\d+;", " ", text)   # strip stray entities
-    return re.sub(r"\s+", " ", text).strip()
-
-
-# ---------------------------------------------------------------------------
-# Per-source normalizers
-# ---------------------------------------------------------------------------
 
 def _norm_hackernews(item: dict) -> dict:
-    ts = datetime.fromtimestamp(item.get("time", 0), tz=timezone.utc)
     return {
         "source": "hackernews",
         "title": item.get("title", ""),
         "content": item.get("text") or "",
         "url": item.get("url") or f"https://news.ycombinator.com/item?id={item.get('id', '')}",
-        "engagement": item.get("score", 0),
-        "timestamp": ts,
+        "engagement": int(item.get("score") or 0),
+        "timestamp": _parse_ts(datetime.fromtimestamp(item.get("time", 0), tz=timezone.utc) if item.get("time") else None),
         "tags": [],
     }
 
 
 def _norm_arxiv(item: dict) -> dict:
-    ts = datetime.fromisoformat(item["published"].replace("Z", "+00:00")) if item.get("published") else datetime.now(timezone.utc)
     return {
         "source": "arxiv",
         "title": item.get("title", ""),
         "content": item.get("summary", ""),
         "url": item.get("url", ""),
-        "engagement": len(item.get("authors", [])),
-        "timestamp": ts,
-        "tags": item.get("categories", []),
+        "engagement": len(item.get("authors") or []),
+        "timestamp": _parse_ts(item.get("published")),
+        "tags": list(item.get("categories") or []),
     }
 
 
 def _norm_github(item: dict) -> dict:
-    ts = datetime.fromisoformat(item["created_at"].replace("Z", "+00:00")) if item.get("created_at") else datetime.now(timezone.utc)
-    tags = list(item.get("topics", []))
-    lang = item.get("language", "")
-    if lang and lang not in tags:
-        tags.append(lang)
-    lic = item.get("license", "")
-    if lic and lic not in tags:
-        tags.append(lic)
+    tags = list(item.get("topics") or [])
+    for extra in (item.get("language", ""), item.get("license", "")):
+        if extra and extra not in tags:
+            tags.append(extra)
     return {
         "source": "github_trending",
         "title": item.get("full_name", ""),
         "content": item.get("description", ""),
         "url": item.get("html_url", ""),
-        "engagement": item.get("stargazers_count", 0),
-        "timestamp": ts,
+        "engagement": int(item.get("stargazers_count") or 0),
+        "timestamp": _parse_ts(item.get("created_at")),
         "tags": tags,
     }
 
 
 def _norm_reddit(item: dict) -> dict:
-    ts = datetime.fromisoformat(item["updated"].replace("Z", "+00:00")) if item.get("updated") else datetime.now(timezone.utc)
     return {
         "source": "reddit",
         "title": item.get("title", ""),
         "content": item.get("content", ""),
         "url": item.get("url", ""),
-        "engagement": 0,  # RSS doesn't carry score
-        "timestamp": ts,
+        "engagement": 0,  # the Atom feed carries no score
+        "timestamp": _parse_ts(item.get("updated")),
         "tags": [],
     }
 
 
-_NORMALIZERS = {
+_NORMALIZERS: dict[str, Callable[[dict], dict]] = {
     "hackernews": _norm_hackernews,
     "arxiv": _norm_arxiv,
     "github_trending": _norm_github,
@@ -128,15 +104,17 @@ def normalize(raw_items: list[dict], source: str) -> list[dict]:
     """
     fn = _NORMALIZERS.get(source)
     if fn is None:
-        _log().warning("Unknown source %r — returning raw items", source)
+        logger.warning(f"event=unknown_source source={source}")
         return raw_items
 
     out: list[dict] = []
     for item in raw_items:
         try:
             normalised = fn(item)
-            normalised["content"] = _strip_html(normalised.get("content", ""))
+            normalised["content"] = strip_html(normalised.get("content", ""))
+            if not normalised.get("title"):
+                continue
             out.append(normalised)
         except Exception as exc:
-            _log().warning("Normalise failed for %s item: %s", source, exc)
+            logger.warning(f"event=normalize_failed source={source} error={exc}")
     return out

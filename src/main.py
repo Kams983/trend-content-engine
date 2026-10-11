@@ -1,194 +1,113 @@
-"""Daily pipeline: ingest → normalize → cluster → score → generate → publish.
+"""CLI entry point.
 
-Run:  python -m src.main
-  or: python src/main.py
+    python -m src.main --use-fixtures --dry-run    # offline smoke test
+    python -m src.main --mode draft                # stage A only
+    python -m src.main --mode publish              # stage B only
+    python -m src.main                             # full (stage A + B)
 
-A straight top-to-bottom sequence — no framework, easy to debug.
+Exit codes: 0 = success or a benign skip, 1 = a FAILED_* stage, 2 = bad config.
 """
 
+from __future__ import annotations
+
+import argparse
 import logging
-import sqlite3
 import sys
-import warnings
-from datetime import datetime, timezone
-from pathlib import Path
 
-warnings.filterwarnings("ignore")
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from .config import ConfigError, load_settings
+from .orchestrator import run
+from .state.db import init_db
+from .util.logging_setup import kv, setup_logging
 
-from src.ingest.hackernews import fetch as hn_fetch
-from src.ingest.arxiv import fetch as arxiv_fetch
-from src.ingest.github_trending import fetch as gh_fetch
-from src.ingest.reddit import fetch as rd_fetch
-from src.ingest.normalize import normalize
-from src.analysis.cluster import cluster
-from src.analysis.score import score
-from src.generate.draft_article import draft_article
-from src.publish.site_publisher import site_publisher
-from src.publish.bluesky_poster import bluesky_poster
-from src.publish.telegram_poster import telegram_poster
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(levelname)-7s %(name)s: %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-)
-log = logging.getLogger("main")
-
-DB_PATH = Path(__file__).resolve().parent.parent / "trend_store.sqlite"
-SITE_URL = ""  # set to your deployed URL for working links in posts
+logger = logging.getLogger("src.main")
 
 
-def _log_run(
-    conn: sqlite3.Connection,
-    trend: str,
-    source: str,
-    item_count: int,
-    site_ok: bool,
-    bluesky_ok: bool,
-    telegram_ok: bool,
-) -> None:
-    """Write a run record to the run_log table."""
-    conn.execute(
-        """CREATE TABLE IF NOT EXISTS run_log (
-               id         INTEGER PRIMARY KEY AUTOINCREMENT,
-               timestamp  TEXT NOT NULL,
-               trend      TEXT NOT NULL,
-               source     TEXT NOT NULL,
-               item_count INTEGER NOT NULL,
-               site_ok    INTEGER NOT NULL,
-               bluesky_ok INTEGER NOT NULL,
-               telegram_ok INTEGER NOT NULL
-           )"""
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(prog="python -m src.main", description="Trend Content Engine")
+    parser.add_argument(
+        "--mode",
+        choices=("draft", "publish", "full"),
+        default=None,
+        help="which stage(s) to run (default: RUN_MODE env or 'full')",
     )
-    conn.execute(
-        "INSERT INTO run_log "
-        "(timestamp, trend, source, item_count, site_ok, bluesky_ok, telegram_ok) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?)",
-        (
-            datetime.now(timezone.utc).isoformat(),
-            trend,
-            source,
-            item_count,
-            int(site_ok),
-            int(bluesky_ok),
-            int(telegram_ok),
-        ),
+    parser.add_argument(
+        "--use-fixtures",
+        action="store_true",
+        default=None,
+        help="read src/ingest/fixtures instead of live sources (offline)",
     )
-    conn.commit()
-
-
-def main() -> None:
-    now = datetime.now(timezone.utc)
-    log.info("=== Pipeline started %s ===", now.strftime("%Y-%m-%d %H:%M:%S UTC"))
-
-    # ------------------------------------------------------------------
-    # 1. INGEST
-    # ------------------------------------------------------------------
-    log.info("Ingesting sources...")
-    sources = {
-        "hackernews": hn_fetch,
-        "arxiv": arxiv_fetch,
-        "github_trending": gh_fetch,
-        "reddit": rd_fetch,
-    }
-
-    all_items: list[dict] = []
-    for source_name, fetch_fn in sources.items():
-        try:
-            raw = fetch_fn()
-            items = normalize(raw, source_name)
-            log.info("  %s: %d raw → %d normalized", source_name, len(raw), len(items))
-            all_items.extend(items)
-        except Exception as exc:
-            log.error("  %s fetch failed: %s", source_name, exc)
-
-    if not all_items:
-        log.warning("No items ingested — exiting cleanly.")
-        return
-
-    log.info("Total items: %d", len(all_items))
-
-    # ------------------------------------------------------------------
-    # 2. CLUSTER
-    # ------------------------------------------------------------------
-    log.info("Clustering...")
-    clusters = cluster(all_items, threshold=0.45)
-    log.info("  %d clusters formed", len(clusters))
-
-    # ------------------------------------------------------------------
-    # 3. SCORE
-    # ------------------------------------------------------------------
-    log.info("Scoring clusters...")
-    ranked = score(clusters, top_n=10, db_path=DB_PATH)
-    if not ranked:
-        log.warning("No ranked clusters — exiting cleanly.")
-        return
-
-    top = ranked[0]
-    log.info(
-        "  #1 trend: score=%.2f vel=%.2f nov=%.1f items=%d | %s",
-        top["score"], top["velocity"], top["novelty"],
-        top["count"], top["label"][:60],
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        default=None,
+        help="run the pipeline but send/write nothing; print what would be sent",
     )
+    parser.add_argument(
+        "--log-level",
+        default="INFO",
+        choices=("DEBUG", "INFO", "WARNING", "ERROR"),
+        help="logging verbosity (default INFO)",
+    )
+    return parser
 
-    # ------------------------------------------------------------------
-    # 4. GENERATE
-    # ------------------------------------------------------------------
-    log.info("Generating article...")
-    article = draft_article(top["items"])
 
-    if article is None:
-        log.info("Not enough substance for an article — skipping day.")
-        # Still log the run so we know it happened
-        conn = sqlite3.connect(str(DB_PATH))
-        _log_run(conn, top["label"], top["sources"], top["count"], False, False, False)
+def main(argv: list[str] | None = None) -> int:
+    args = build_parser().parse_args(argv)
+    setup_logging(args.log_level)
+
+    try:
+        settings = load_settings(dry_run=args.dry_run, use_fixtures=args.use_fixtures, mode=args.mode)
+    except ConfigError as exc:
+        # A missing key must be loud and list every problem at once.
+        print(f"\nConfiguration error\n{exc}\n", file=sys.stderr)
+        logger.error(kv("config_invalid", problems=len(str(exc).splitlines()) - 1))
+        return 2
+
+    if settings.use_fixtures:
+        from .analysis.fixture_encoder import install_fixture_encoder
+
+        install_fixture_encoder()
+
+    if settings.offline:
+        logger.warning(
+            kv(
+                "offline_mode",
+                note="no GROQ_API_KEY / TCE_OFFLINE: deterministic stub LLM output",
+            )
+        )
+    elif not settings.groq_api_key:
+        # Should not happen (validation catches it) but be explicit.
+        print("Configuration error\n  - GROQ_API_KEY: required", file=sys.stderr)
+        return 2
+
+    conn = init_db(settings.db_path)
+    try:
+        results = run(settings, conn)
+    finally:
         conn.close()
-        log.info("=== Pipeline finished (skipped) ===")
-        return
 
-    log.info("  Title: %s", article["title"])
-    log.info("  Teaser (%d chars): %s", len(article["teaser"]), article["teaser"][:80])
+    failed = False
+    for result in results:
+        line = kv(
+            "stage_result",
+            outcome=result.outcome,
+            stage=result.stage or "-",
+            reason=result.reason[:300],
+            article_id=result.article_id if result.article_id is not None else "-",
+        )
+        if result.failed:
+            failed = True
+            logger.error(line)
+        else:
+            logger.info(line)
 
-    # ------------------------------------------------------------------
-    # 5. PUBLISH TO SITE
-    # ------------------------------------------------------------------
-    log.info("Publishing to site...")
-    post_path = site_publisher(article, date=now)
-    site_ok = post_path is not None
-    if site_ok:
-        log.info("  Written: %s", post_path)
-    else:
-        log.warning("  Site publish failed")
+    if failed:
+        logger.error(kv("run_failed", note="one or more stages failed; see run_log for details"))
+        return 1
 
-    # ------------------------------------------------------------------
-    # 6. POST TO BLUESKY
-    # ------------------------------------------------------------------
-    log.info("Posting to Bluesky...")
-    bluesky_ok = bluesky_poster(article, site_url=SITE_URL)
-    log.info("  Bluesky: %s", "OK" if bluesky_ok else "FAILED")
-
-    # ------------------------------------------------------------------
-    # 7. POST TO TELEGRAM
-    # ------------------------------------------------------------------
-    log.info("Posting to Telegram...")
-    telegram_ok = telegram_poster(article, site_url=SITE_URL)
-    log.info("  Telegram: %s", "OK" if telegram_ok else "FAILED")
-
-    # ------------------------------------------------------------------
-    # 8. LOG RUN
-    # ------------------------------------------------------------------
-    conn = sqlite3.connect(str(DB_PATH))
-    _log_run(conn, top["label"], top["sources"], top["count"], site_ok, bluesky_ok, telegram_ok)
-    conn.close()
-
-    log.info(
-        "=== Pipeline finished: site=%s bluesky=%s telegram=%s ===",
-        "OK" if site_ok else "FAIL",
-        "OK" if bluesky_ok else "FAIL",
-        "OK" if telegram_ok else "FAIL",
-    )
+    logger.info(kv("run_ok", dry_run=settings.dry_run, mode=settings.mode, offline=settings.offline))
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

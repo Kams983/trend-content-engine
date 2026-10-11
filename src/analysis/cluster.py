@@ -1,61 +1,58 @@
 """Group normalised items into clusters by embedding cosine similarity.
 
-Uses a simple single-linkage / greedy threshold approach — no scipy
-or sklearn clustering needed.  Returns list[list[dict]], one sub-list
-per cluster.
+Simple greedy single-linkage via Union-Find — no scipy or sklearn needed.
+Returns ``list[list[dict]]``, one sub-list per cluster.
 """
+
+from __future__ import annotations
 
 import logging
 
 import numpy as np
 
-from src.analysis.embed import embed
+from .embed import embed_matrix
 
 logger = logging.getLogger(__name__)
 
-# Items with cosine similarity >= threshold are grouped together.
-DEFAULT_THRESHOLD = 0.45
+#: Items with cosine similarity >= threshold are grouped together.
+#: 0.40 was tuned on the 120 frozen fixtures (see
+#: scripts/precompute_fixture_embeddings.py): low enough to form rich
+#: cross-source clusters, high enough to keep them coherent.
+DEFAULT_THRESHOLD = 0.40
+#: How much of an item's content to include in the embedding text.
+CONTENT_CHARS = 300
 
 
-def _cosine_sim_matrix(vecs: np.ndarray) -> np.ndarray:
-    """Pairwise cosine similarity matrix (n × n)."""
-    norms = np.linalg.norm(vecs, axis=1, keepdims=True)
-    norms = np.where(norms == 0, 1, norms)  # avoid /0
-    normed = vecs / norms
-    return normed @ normed.T
+def build_embed_text(item: dict) -> str:
+    """Title + truncated content — the canonical text used for embeddings.
 
-
-def _build_text(item: dict) -> str:
-    """Combine title + content into a single string for embedding.
-
-    Content is truncated to 300 chars to keep embedding fast on long
-    abstracts while preserving enough signal for similarity grouping.
+    Shared by the pipeline and the fixture-embedding precompute script so the
+    vectors always line up.
     """
-    title = item.get('title', '')
-    content = item.get('content', '')[:300]
+    title = (item.get("title") or "").strip()
+    content = (item.get("content") or "")[:CONTENT_CHARS]
     return f"{title} {content}".strip()
 
 
+def cosine_sim_matrix(vecs: np.ndarray) -> np.ndarray:
+    """Pairwise cosine similarity matrix for L2-normalised (or raw) rows."""
+    if vecs.size == 0:
+        return np.zeros((0, 0), dtype=np.float32)
+    norms = np.linalg.norm(vecs, axis=1, keepdims=True)
+    norms = np.where(norms == 0, 1.0, norms)
+    normed = vecs / norms
+    return (normed @ normed.T).astype(np.float32)
+
+
 def cluster(items: list[dict], threshold: float = DEFAULT_THRESHOLD) -> list[list[dict]]:
-    """Cluster *items* by cosine similarity of their embeddings.
-
-    Algorithm:
-        1. Embed all items.
-        2. Build an n×n cosine-similarity matrix.
-        3. Greedily merge items whose similarity >= *threshold* using
-           Union-Find, so each connected component becomes one cluster.
-
-    Items that are not similar to anything else become single-item clusters.
-    """
+    """Cluster *items* into groups of embedding-similar items."""
     if not items:
         return []
 
-    texts = [_build_text(it) for it in items]
-    vecs = np.array(embed(texts), dtype=np.float32)
-    sim = _cosine_sim_matrix(vecs)
+    vecs = embed_matrix([build_embed_text(it) for it in items])
+    sim = cosine_sim_matrix(vecs)
     n = len(items)
 
-    # ---------- Union-Find ----------
     parent = list(range(n))
 
     def find(x: int) -> int:
@@ -70,19 +67,39 @@ def cluster(items: list[dict], threshold: float = DEFAULT_THRESHOLD) -> list[lis
             parent[ra] = rb
 
     for i in range(n):
+        row = sim[i]
         for j in range(i + 1, n):
-            if sim[i, j] >= threshold:
+            if row[j] >= threshold:
                 union(i, j)
 
-    # ---------- Group by root ----------
     groups: dict[int, list[dict]] = {}
     for idx in range(n):
-        root = find(idx)
-        groups.setdefault(root, []).append(items[idx])
+        groups.setdefault(find(idx), []).append(items[idx])
 
-    clusters = list(groups.values())
-    logger.info(
-        "Clustered %d items into %d clusters (threshold=%.2f)",
-        n, len(clusters), threshold,
-    )
+    clusters = sorted(groups.values(), key=lambda c: (-len(c), c[0].get("title", "")))
+    logger.info("event=clustered items=%d clusters=%d threshold=%s", n, len(clusters), threshold)
     return clusters
+
+
+def cluster_label(cluster: list[dict]) -> str:
+    """Display-only label: the first item's title, truncated."""
+    if not cluster:
+        return "empty"
+    return (cluster[0].get("title") or "untitled")[:80]
+
+
+def cluster_sources(cluster: list[dict]) -> list[str]:
+    """Sorted unique source names in a cluster."""
+    return sorted({it.get("source", "?") for it in cluster})
+
+
+def centroid_of(items: list[dict]) -> np.ndarray:
+    """L2-normalised mean embedding of *items* (the cluster centroid)."""
+    if not items:
+        return np.zeros(embed_matrix([""]).shape[1], dtype=np.float32)
+    vecs = embed_matrix([build_embed_text(it) for it in items])
+    mean = vecs.mean(axis=0)
+    norm = float(np.linalg.norm(mean))
+    if norm == 0.0:
+        return mean.astype(np.float32)
+    return (mean / norm).astype(np.float32)

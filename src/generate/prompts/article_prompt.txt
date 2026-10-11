@@ -56,3 +56,21 @@ TEASER RULES (for the Bluesky/Telegram post, separate from the article)
   hook gets called out and kills trust for the next post — this matters
   more running daily than for a one-off post.
 - Under 200 characters. No hashtag stuffing, one relevant tag at most.
+
+---
+
+GROUNDING RULES (appended by the engine — do not remove)
+
+- State only facts that appear in the supplied source items. If a source does
+  not contain a number, date, quote, benchmark, version, price or name, do not
+  supply one and do not guess.
+- Attribute every claim to the source it came from (for example "according to
+  <source name>") rather than asserting it as your own knowledge.
+- Do not draw on anything outside the supplied sources, including general
+  knowledge from training. Do not list the sources at the end — the engine
+  builds the Sources section itself from the cluster.
+- Never invent model names, version numbers, benchmark results, funding
+  amounts, quotations, or publication dates.
+- If the supplied sources cannot support a grounded 400-word article, return
+  the empty JSON object `{"title": "", "body_markdown": "", "teaser": "", "tags": []}`
+  instead of padding with generalities.

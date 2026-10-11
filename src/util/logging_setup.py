@@ -13,6 +13,7 @@ import json
 import logging
 import sys
 from datetime import datetime, timezone
+from enum import Enum
 from typing import Any, TextIO
 
 _TIME_FMT = "%Y-%m-%dT%H:%M:%SZ"
@@ -20,6 +21,8 @@ _TIME_FMT = "%Y-%m-%dT%H:%M:%SZ"
 
 def _render(value: Any) -> str:
     """Render a value for a ``key=value`` pair without spaces or newlines."""
+    if isinstance(value, Enum):
+        value = value.value
     if value is None:
         return "null"
     if isinstance(value, bool):

@@ -135,7 +135,7 @@ class Settings:
     min_sources_with_data: int = 2
 
     # --- analysis -------------------------------------------------------
-    cluster_threshold: float = 0.45
+    cluster_threshold: float = 0.40
     topic_similarity_threshold: float = 0.6
     topic_lookback_days: int = 14
     topic_retention_days: int = 60
@@ -224,9 +224,11 @@ def load_settings(
     groq_key = _str("GROQ_API_KEY")
 
     # Offline mode: fixtures + dry run *and* no key available → deterministic
-    # stub LLM. This is the only path that does not need a Groq key, and it is
-    # logged loudly by the orchestrator.
-    offline = bool(fixtures and dry and not groq_key)
+    # stub LLM. TCE_OFFLINE=1 forces the same stub explicitly (useful for CI
+    # smoke tests that must not touch the network). This is the only path that
+    # does not need a Groq key, and it is logged loudly by the orchestrator.
+    forced_offline = _bool("TCE_OFFLINE", False)
+    offline = bool(forced_offline or (fixtures and dry and not groq_key))
 
     settings = Settings(
         dry_run=dry,
@@ -258,7 +260,7 @@ def load_settings(
         github_limit=_int("GITHUB_LIMIT", 30),
         reddit_limit=_int("REDDIT_LIMIT", 30),
         min_sources_with_data=_int("MIN_SOURCES_WITH_DATA", 2),
-        cluster_threshold=_float("CLUSTER_THRESHOLD", 0.45),
+        cluster_threshold=_float("CLUSTER_THRESHOLD", 0.40),
         topic_similarity_threshold=_float("TOPIC_SIMILARITY_THRESHOLD", 0.6),
         topic_lookback_days=_int("TOPIC_LOOKBACK_DAYS", 14),
         topic_retention_days=_int("TOPIC_RETENTION_DAYS", 60),
@@ -309,7 +311,10 @@ def missing_keys(settings: Settings) -> list[str]:
         "required to draft articles (set it, or run with --use-fixtures --dry-run for an offline smoke test)",
     )
 
-    if settings.require_approval:
+    # Approval needs Telegram, but a dry run never sends anything, so we do not
+    # demand those keys there (that is how `--use-fixtures --dry-run` can run on
+    # a fresh clone with an untouched .env).
+    if settings.require_approval and not settings.dry_run:
         require(
             bool(settings.telegram_bot_token),
             "TELEGRAM_BOT_TOKEN",
