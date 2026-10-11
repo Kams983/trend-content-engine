@@ -39,10 +39,46 @@ class Publisher(Protocol):
     def publish(self, article: dict, settings) -> PublishResult: ...
 
 
+class MissingSiteUrl(RuntimeError):
+    """Raised when an absolute post URL is needed but ``SITE_URL`` is not set.
+
+    A relative ``/posts/<slug>`` is useless on a cross-post (and wrong as a
+    canonical link), so publishers refuse to build one instead of quietly
+    emitting one.
+    """
+
+
+def site_origin(settings) -> str:
+    """The configured site origin without a trailing slash, or "" when unset."""
+    return (getattr(settings, "site_url", "") or "").rstrip("/")
+
+
 def post_url(settings, slug: str) -> str:
-    """Absolute URL of a post on the site (no trailing slash)."""
-    base = (getattr(settings, "site_url", "") or "").rstrip("/")
-    return f"{base}/posts/{slug}" if base else f"/posts/{slug}"
+    """Absolute URL of a post on the site (no trailing slash).
+
+    Raises :class:`MissingSiteUrl` when ``SITE_URL`` is unset: anything that
+    leaves the machine must carry an absolute link, and a silent relative path
+    would fail on the destination platform instead of here.
+    """
+    base = site_origin(settings)
+    if not base:
+        raise MissingSiteUrl(
+            f"SITE_URL is not set: refusing to build the relative link /posts/{slug} for an outbound post"
+        )
+    return f"{base}/posts/{slug}"
+
+
+def post_url_or_empty(settings, slug: str) -> str:
+    """Absolute post URL, or "" when ``SITE_URL`` is unset.
+
+    Only for callers whose output never leaves this machine: the site target
+    (which writes a file) and the dry-run preview. Everything outbound uses
+    :func:`post_url` and fails loudly instead.
+    """
+    try:
+        return post_url(settings, slug)
+    except MissingSiteUrl:
+        return ""
 
 
 def publication_footer(brand: str) -> str:
@@ -123,7 +159,7 @@ def as_publication_article(article: dict, slug: str, settings) -> dict:
     """
     enriched = dict(article)
     enriched.setdefault("slug", slug)
-    enriched["url"] = enriched.get("url") or post_url(settings, slug)
+    enriched["url"] = enriched.get("url") or post_url_or_empty(settings, slug)
     enriched.setdefault("description", build_description(article.get("teaser", "")))
     brand = getattr(settings, "brand_name", "") or ""
     enriched.setdefault("brand_name", brand)

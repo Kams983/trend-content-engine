@@ -376,6 +376,26 @@ def missing_keys(settings: Settings) -> list[str]:
             "required when ENABLE_MASTODON=true",
         )
 
+    # Every outbound post links back to the published article, so the origin is
+    # required as soon as a target off this machine is enabled. (The site target
+    # writes a local file and does not need it.) Publishing a relative link is
+    # never acceptable, so this is checked at startup rather than at post time.
+    outbound_flags = (
+        ("ENABLE_BLUESKY", settings.enable_bluesky),
+        ("ENABLE_TELEGRAM_CHANNEL", settings.enable_telegram_channel),
+        ("ENABLE_DEVTO", settings.enable_devto),
+        ("ENABLE_HASHNODE", settings.enable_hashnode),
+        ("ENABLE_MASTODON", settings.enable_mastodon),
+    )
+    enabled_outbound = [key for key, enabled in outbound_flags if enabled]
+    if enabled_outbound:
+        require(
+            bool(settings.site_url),
+            "SITE_URL",
+            f"required when an outbound target is enabled ({', '.join(enabled_outbound)}): "
+            "outbound posts must link back to an absolute URL",
+        )
+
     # Sanity checks on ranges.
     if settings.article_min_words <= 0 or settings.article_max_words <= settings.article_min_words:
         problems.append("ARTICLE_MIN_WORDS/ARTICLE_MAX_WORDS: max must be greater than min")

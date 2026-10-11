@@ -48,6 +48,25 @@ def test_enabled_social_target_requires_its_keys(tmp_path, monkeypatch) -> None:
     assert "BLUESKY_APP_PASSWORD" in message
 
 
+def test_an_outbound_target_requires_site_url(tmp_path, monkeypatch) -> None:
+    """Outbound posts link back to the article, so the origin is mandatory."""
+    monkeypatch.setenv("GROQ_API_KEY", "test-key")
+    monkeypatch.setenv("ENABLE_BLUESKY", "true")
+    monkeypatch.setenv("BLUESKY_HANDLE", "you.bsky.social")
+    monkeypatch.setenv("BLUESKY_APP_PASSWORD", "app-password")
+    with pytest.raises(ConfigError) as excinfo:
+        load_settings(dry_run=True, env_file=_env_file(tmp_path))
+    message = str(excinfo.value)
+    assert "SITE_URL" in message
+    assert "absolute URL" in message
+
+
+def test_the_site_target_alone_does_not_require_site_url(tmp_path) -> None:
+    settings = load_settings(dry_run=True, use_fixtures=True, env_file=_env_file(tmp_path))
+    assert settings.site_url == ""
+    assert missing_keys(settings) == []
+
+
 def test_dry_run_relaxes_approval_requirements(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("GROQ_API_KEY", "test-key")
     settings = load_settings(dry_run=True, env_file=_env_file(tmp_path))

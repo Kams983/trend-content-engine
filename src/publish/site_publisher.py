@@ -12,7 +12,7 @@ import logging
 from datetime import datetime, timezone
 from pathlib import Path
 
-from .base import PublishResult, as_publication_article, post_url
+from .base import PublishResult, as_publication_article, post_url_or_empty
 
 logger = logging.getLogger(__name__)
 
@@ -89,4 +89,6 @@ def site_publisher(article: dict, settings) -> PublishResult:
     path = write_post(enriched, settings)
     if path is None:
         return PublishResult(target="site", ok=False, error="could not write post file")
-    return PublishResult(target="site", ok=True, url=post_url(settings, slug), external_id=str(path))
+    # The site target writes a file, so a missing SITE_URL must not fail the run;
+    # outbound targets require an absolute link and refuse to publish without one.
+    return PublishResult(target="site", ok=True, url=post_url_or_empty(settings, slug), external_id=str(path))

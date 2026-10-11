@@ -127,6 +127,8 @@ def test_every_outbound_template_carries_the_publication_brand(settings) -> None
 
 def test_rebranding_changes_every_public_template_at_once(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("BRAND_NAME", REBRANDED)
+    # Outbound templates need an origin: they must never carry a relative link.
+    monkeypatch.setenv("SITE_URL", "https://upwire.example.test")
     rebranded = load_settings(dry_run=True, use_fixtures=True, env_file=tmp_path / "absent.env")
     for name, text in outbound_texts(rebranded).items():
         assert REBRANDED in text, f"{name} did not pick up the new brand"
