@@ -1,8 +1,9 @@
 """Generate a short article from the top-ranked cluster of trending items.
 
-Calls the Groq API (OpenAI-compatible) with llama-3.3-70b-versatile.
-Returns {title, body_markdown, teaser} or None if the source material
-is too thin for a 400-word article.
+Calls the Groq API (OpenAI-compatible). The model is configurable via
+GROQ_MODEL (default ``openai/gpt-oss-120b``) with GROQ_MODEL_FALLBACK used
+after retryable failures. Returns {title, body_markdown, teaser} or None if
+the source material is too thin for a 400-word article.
 """
 
 import json
