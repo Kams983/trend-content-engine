@@ -1,0 +1,25 @@
+---
+import { SITE, absolute } from "../lib/site";
+const year = new Date().getUTCFullYear();
+const origin = Astro.site ?? new URL("https://example.com");
+---
+
+<footer class="site-footer">
+  <div class="wrap site-footer__inner">
+    <div>
+      <p>
+        <strong>{SITE.title}</strong> drafts every article from a cluster of cited
+        sources with a large language model, then validates it before publishing.
+      </p>
+      <p>Nothing is published without a source list, and every post is marked AI-assisted.</p>
+    </div>
+    <div>
+      <p>
+        <a href="/about">How this works</a> ·
+        <a href={absolute(origin, "/rss.xml")}>RSS</a> ·
+        <a href="/archive">Archive</a>
+      </p>
+      <p>© {year} {SITE.author}</p>
+    </div>
+  </div>
+</footer>

@@ -1,0 +1,65 @@
+---
+import "../styles/global.css";
+import Header from "../components/Header.astro";
+import Footer from "../components/Footer.astro";
+import Analytics from "../components/Analytics.astro";
+import { SITE, absolute, cleanPath } from "../lib/site";
+
+interface Props {
+  title: string;
+  description: string;
+  /** Site-relative path of the OG image, e.g. "/og/my-post.png". */
+  image?: string;
+  type?: "website" | "article";
+  publishedTime?: string;
+  jsonLd?: Record<string, unknown>;
+}
+
+const { title, description, image, type = "website", publishedTime, jsonLd } = Astro.props;
+const origin = Astro.site ?? new URL("https://example.com");
+const canonical = absolute(origin, cleanPath(Astro.url.pathname));
+const ogImage = absolute(origin, image ?? "/og/default.png");
+const fullTitle = title === SITE.title ? title : `${title} — ${SITE.title}`;
+---
+
+<!doctype html>
+<html lang={SITE.language}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{fullTitle}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="alternate" type="application/rss+xml" title={`${SITE.title} — RSS`} href={absolute(origin, "/rss.xml")} />
+    <meta name="theme-color" content="#f8f7f4" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#121316" media="(prefers-color-scheme: dark)" />
+
+    <meta property="og:type" content={type} />
+    <meta property="og:title" content={fullTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:site_name" content={SITE.title} />
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content={title} />
+    {publishedTime && <meta property="article:published_time" content={publishedTime} />}
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={fullTitle} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImage} />
+
+    {jsonLd && <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />}
+  </head>
+  <body>
+    <a class="skip-link" href="#content">Skip to content</a>
+    <Header />
+    <main id="content" class="wrap">
+      <slot />
+    </main>
+    <Footer />
+    <Analytics />
+  </body>
+</html>

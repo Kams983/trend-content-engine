@@ -1,0 +1,35 @@
+---
+import { getCollection } from "astro:content";
+import BaseLayout from "../layouts/BaseLayout.astro";
+import { SITE, byYear, formatDateShort, postPath, sortPosts } from "../lib/site";
+
+const posts = sortPosts(await getCollection("posts"));
+const years = byYear(posts);
+---
+
+<BaseLayout title="Archive" description={`Every article published by ${SITE.title}, newest first.`}>
+  <section>
+    <div class="section-head">
+      <h1>Archive</h1>
+      <span class="section-head__count">{posts.length} posts</span>
+    </div>
+
+    {years.length === 0 ? (
+      <p class="empty">Nothing archived yet.</p>
+    ) : (
+      years.map(({ year, posts: items }) => (
+        <div class="year-group">
+          <h2>{year}</h2>
+          <ul>
+            {items.map((post) => (
+              <li>
+                <time datetime={post.data.date.toISOString()}>{formatDateShort(post.data.date)}</time>
+                <a href={postPath(post.data.slug)}>{post.data.title}</a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))
+    )}
+  </section>
+</BaseLayout>

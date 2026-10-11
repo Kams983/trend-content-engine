@@ -1,0 +1,15 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import { SITE } from "../lib/site";
+---
+
+<BaseLayout title="Page not found" description={`That page does not exist on ${SITE.title}.`}>
+  <section class="not-found">
+    <h1>Page not found</h1>
+    <p>That URL does not exist — it may have been renamed, or the link was mistyped.</p>
+    <p>
+      Try the <a href="/">latest articles</a>, the <a href="/archive">archive</a>, or
+      the <a href="/tags">topic index</a>.
+    </p>
+  </section>
+</BaseLayout>

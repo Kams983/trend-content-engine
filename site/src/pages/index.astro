@@ -1,35 +1,30 @@
 ---
 import { getCollection } from "astro:content";
+import BaseLayout from "../layouts/BaseLayout.astro";
+import PostCard from "../components/PostCard.astro";
+import Subscribe from "../components/Subscribe.astro";
+import { SITE, sortPosts } from "../lib/site";
 
-const posts = (await getCollection("posts")).sort(
-  (a, b) => b.data.date.valueOf() - a.data.date.valueOf()
-);
+const posts = sortPosts(await getCollection("posts"));
 ---
 
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width" />
-    <title>Trend Content Engine</title>
-    <style>
-      body { font-family: system-ui, sans-serif; max-width: 700px; margin: 2rem auto; padding: 0 1rem; }
-      h1 { font-size: 1.5rem; }
-      article { margin-bottom: 2rem; border-bottom: 1px solid #ddd; padding-bottom: 1rem; }
-      .meta { color: #666; font-size: 0.85rem; }
-      .tags span { background: #eee; padding: 2px 6px; border-radius: 3px; font-size: 0.8rem; margin-right: 4px; }
-    </style>
-  </head>
-  <body>
-    <h1>Trend Content Engine</h1>
-    {posts.length === 0 && <p>No posts yet.</p>}
-    {posts.map((post) => (
-      <article>
-        <h2><a href={`/posts/${post.id}`}>{post.data.title}</a></h2>
-        <div class="meta">
-          {post.data.date.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}
-          <span class="tags">{post.data.tags.map((t) => <span>{t}</span>)}</span>
-        </div>
-      </article>
-    ))}
-  </body>
-</html>
+<BaseLayout title={SITE.title} description={SITE.description}>
+  <section>
+    <div class="section-head">
+      <h1>Latest</h1>
+      <span class="section-head__count">
+        {posts.length} {posts.length === 1 ? "post" : "posts"}
+      </span>
+    </div>
+
+    {posts.length === 0 ? (
+      <p class="empty">No posts yet. The first scheduled run will publish here.</p>
+    ) : (
+      <div class="post-list">
+        {posts.map((post) => <PostCard post={post} />)}
+      </div>
+    )}
+  </section>
+
+  <Subscribe />
+</BaseLayout>

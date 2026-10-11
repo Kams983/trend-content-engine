@@ -1,0 +1,22 @@
+---
+// Optional email capture. Renders nothing when PUBLIC_BUTTONDOWN_USERNAME is unset.
+const username = import.meta.env.PUBLIC_BUTTONDOWN_USERNAME;
+---
+
+{username && (
+  <section class="subscribe" aria-labelledby="subscribe-heading">
+    <h2 id="subscribe-heading">Get the daily digest by email</h2>
+    <p>One grounded article a day. No spam, unsubscribe any time.</p>
+    <form
+      action={`https://buttondown.email/api/emails/embed-subscribe/${username}`}
+      method="post"
+      target="_blank"
+      rel="noopener"
+    >
+      <label for="subscribe-email" class="visually-hidden">Email address</label>
+      <input id="subscribe-email" type="email" name="email" placeholder="you@example.com" required />
+      <button type="submit">Subscribe</button>
+    </form>
+    <small>Delivered by Buttondown. Your address is only used for this list.</small>
+  </section>
+)}

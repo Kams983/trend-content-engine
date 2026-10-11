@@ -1,0 +1,28 @@
+---
+import type { Post } from "../lib/site";
+import { formatDate, postPath, readingTime } from "../lib/site";
+
+interface Props {
+  post: Post;
+}
+
+const { post } = Astro.props;
+const href = postPath(post.data.slug);
+const minutes = readingTime(post.body ?? "");
+---
+
+<article class="post-card">
+  <h2 class="post-card__title"><a href={href}>{post.data.title}</a></h2>
+  <p class="post-card__desc">{post.data.description}</p>
+  <div class="post-card__meta">
+    <time datetime={post.data.date.toISOString()}>{formatDate(post.data.date)}</time>
+    <span>{minutes} min read</span>
+    {post.data.tags.length > 0 && (
+      <ul class="tags">
+        {post.data.tags.slice(0, 4).map((tag) => (
+          <li><a href={`/tags/${tag}`}>{tag}</a></li>
+        ))}
+      </ul>
+    )}
+  </div>
+</article>

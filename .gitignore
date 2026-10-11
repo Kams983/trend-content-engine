@@ -12,6 +12,10 @@
 htmlcov/
 *.egg-info/
 
+# Local dev-server artifacts
+site/dev.log
+site/dev.pid
+
 # Dependencies
 node_modules/
 
