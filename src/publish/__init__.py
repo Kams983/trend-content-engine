@@ -3,6 +3,11 @@
 ``get_publishers(settings)`` returns the enabled targets in a stable order.
 The orchestrator is responsible for idempotency (the ``publications`` table) and
 for dry-run behaviour (never calling these in ``--dry-run``).
+
+Note: the publish functions are imported under underscore-prefixed aliases so
+this package does **not** shadow the ``publish.<module>`` submodule names.
+Callers can therefore still do ``from .publish import telegram_poster`` and get
+the module (needed for monkeypatching in tests and for the approval handler).
 """
 
 from __future__ import annotations
@@ -12,23 +17,23 @@ import logging
 from typing import Callable
 
 from .base import Publisher, PublishResult, as_publication_article, build_description, post_url
-from .bluesky_poster import bluesky_poster
-from .devto_poster import devto_poster
-from .hashnode_poster import hashnode_poster
-from .mastodon_poster import mastodon_poster
-from .site_publisher import site_publisher
-from .telegram_poster import telegram_poster
+from .bluesky_poster import bluesky_poster as _bluesky_poster
+from .devto_poster import devto_poster as _devto_poster
+from .hashnode_poster import hashnode_poster as _hashnode_poster
+from .mastodon_poster import mastodon_poster as _mastodon_poster
+from .site_publisher import site_publisher as _site_publisher
+from .telegram_poster import telegram_poster as _telegram_poster
 
 logger = logging.getLogger(__name__)
 
 #: target name → publish function
 REGISTRY: dict[str, Callable[[dict, object], PublishResult]] = {
-    "site": site_publisher,
-    "bluesky": bluesky_poster,
-    "telegram": telegram_poster,
-    "devto": devto_poster,
-    "hashnode": hashnode_poster,
-    "mastodon": mastodon_poster,
+    "site": _site_publisher,
+    "bluesky": _bluesky_poster,
+    "telegram": _telegram_poster,
+    "devto": _devto_poster,
+    "hashnode": _hashnode_poster,
+    "mastodon": _mastodon_poster,
 }
 
 
