@@ -1,40 +1,81 @@
 /* ------------------------------------------------------------------
-   Editorial stylesheet — reader-facing, so it belongs to the
-   publication brand (SITE.title / PUBLIC_BRAND_NAME), never to the
-   engine that produced it. Typography-led, one accent colour, no
-   gradients, no imagery. Light and dark follow prefers-color-scheme.
+   Upwire — editorial stylesheet.
+
+   Reader-facing, so it belongs to the publication brand
+   (SITE.title / PUBLIC_BRAND_NAME), never to the engine behind it.
+
+   Rules of the house:
+   - type does the work: sans for UI and headings, serif for article body
+   - one accent colour, used only for interaction (hover, focus, current nav)
+   - separation is whitespace and 1px hairlines, never borders or shadows
+   - max border radius 4px, no gradients, no imagery, no client JS
    ------------------------------------------------------------------ */
 
+/* --- tokens -------------------------------------------------------- */
+
 :root {
-  --bg: #f8f7f4;
-  --surface: #ffffff;
-  --ink: #191a1d;
-  --muted: #5d6070;
-  --rule: #e3e1db;
-  --accent: #255e8a;
-  --accent-soft: #e8eff5;
+  /* Keep native scrollbars, form controls and the canvas in the same mode as
+     the page: without this, dark mode still paints light-grey UI furniture. */
+  color-scheme: light;
 
-  --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, "Times New Roman", serif;
+  /* colour */
+  --bg: #fafaf7;
+  --ink: #1a1a1a;
+  --muted: #6b6b6b;
+  --hairline: #e6e4de;
+  --accent: #c2410c; /* confident orange; 4.95:1 on --bg */
+  --selection: #f3d9c9;
+
+  /* type */
+  --serif: Charter, "Iowan Old Style", "Source Serif 4", Georgia, serif;
   --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
 
-  --measure: 68ch;
-  --gutter: clamp(1.25rem, 4vw, 2.5rem);
-  --space: clamp(1.5rem, 3vw, 2.5rem);
+  --step--1: 0.8125rem; /* 13px — meta */
+  --step-0: 1.125rem; /* 18px — body */
+  --step-1: 1.1875rem; /* 19px — row titles */
+  --step-2: clamp(1.5rem, 2.4vw, 2rem); /* featured title */
+  --step-3: clamp(2rem, 4vw, 2.75rem); /* page / article title */
+  --step-4: clamp(1.35rem, 2vw, 1.6rem); /* article h2 */
+
+  /* 66 characters, and never wider than the 720px reading column: on fonts
+     with wide digits 66ch alone measures ~770px. */
+  --measure: min(66ch, 45rem);
+  --column: 45rem; /* 720px reading column */
+  --page: 60rem; /* 960px index / header container */
+
+  /* spacing: 8px base scale */
+  --s1: 0.5rem;
+  --s2: 1rem;
+  --s3: 1.5rem;
+  --s4: 2rem;
+  --s5: 3rem;
+  --s6: 4rem;
+  --gutter: clamp(20px, 4vw, 32px);
+
   --radius: 3px;
+  --rule: 1px solid var(--hairline);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #121316;
-    --surface: #191b1f;
-    --ink: #ecedee;
-    --muted: #a3a7b4;
-    --rule: #2b2e35;
-    --accent: #8fb8dd;
-    --accent-soft: #1d2833;
+    color-scheme: dark;
+    --bg: #0f0f10;
+    --ink: #ededed;
+    --muted: #9a9a9a;
+    --hairline: #26262a;
+    --accent: #f0a15e; /* lightened to keep AA on the dark background */
+    --selection: #3a2a1e;
   }
 }
+
+@media (min-width: 60rem) {
+  :root {
+    --step-0: 1.1875rem; /* 19px body on large screens */
+  }
+}
+
+/* --- reset --------------------------------------------------------- */
 
 *,
 *::before,
@@ -45,11 +86,11 @@
 html {
   background: var(--bg);
   color: var(--ink);
-  font-family: var(--sans);
-  font-size: 106.25%;
+  font-family: var(--serif);
+  font-size: 100%;
   line-height: 1.65;
   -webkit-text-size-adjust: 100%;
-  text-underline-offset: 0.18em;
+  text-underline-offset: 3px;
 }
 
 body {
@@ -57,45 +98,149 @@ body {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  font-size: var(--step-0);
 }
+
+::selection {
+  background: var(--selection);
+}
+
+/* --- type ---------------------------------------------------------- */
 
 h1,
 h2,
 h3,
 h4 {
-  font-family: var(--serif);
-  font-weight: 600;
-  line-height: 1.2;
-  letter-spacing: -0.01em;
-  margin: 0 0 0.6em;
+  font-family: var(--sans);
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  margin: 0 0 var(--s3);
   text-wrap: balance;
 }
 
 h1 {
-  font-size: clamp(1.9rem, 4.4vw, 2.6rem);
+  font-size: var(--step-3);
 }
 h2 {
-  font-size: clamp(1.35rem, 2.6vw, 1.6rem);
-  margin-top: 2.2em;
+  font-size: var(--step-4);
+  margin-top: var(--s5);
 }
 h3 {
-  font-size: 1.15rem;
-  margin-top: 1.8em;
+  font-size: var(--step-1);
+  letter-spacing: -0.01em;
+  margin-top: var(--s4);
 }
 
 p,
 ul,
 ol,
-blockquote {
-  margin: 0 0 1.15em;
+blockquote,
+table,
+figure,
+pre {
+  margin: 0 0 var(--s3);
 }
 
-a {
-  color: var(--accent);
-  text-decoration-thickness: 1px;
-  text-decoration-color: color-mix(in srgb, var(--accent) 40%, transparent);
+p,
+li {
+  text-wrap: pretty;
 }
+
+strong {
+  font-weight: 700;
+}
+
+hr {
+  border: 0;
+  border-top: var(--rule);
+  margin: var(--s5) 0;
+}
+
+code,
+pre,
+kbd,
+samp {
+  font-family: var(--mono);
+  font-size: 0.9em;
+}
+
+code {
+  background: color-mix(in srgb, var(--ink) 6%, transparent);
+  padding: 0.1em 0.3em;
+  border-radius: var(--radius);
+}
+
+pre {
+  border-top: var(--rule);
+  border-bottom: var(--rule);
+  padding: var(--s3) 0;
+  overflow-x: auto;
+  line-height: 1.5;
+}
+
+pre code {
+  background: none;
+  padding: 0;
+}
+
+blockquote {
+  border-left: 2px solid var(--accent);
+  padding-left: var(--s3);
+  color: var(--muted);
+  font-style: italic;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  font-family: var(--sans);
+  font-size: var(--step--1);
+}
+
+th,
+td {
+  text-align: left;
+  padding: var(--s1) var(--s2) var(--s1) 0;
+  border-bottom: var(--rule);
+  vertical-align: top;
+}
+
+th {
+  font-weight: 600;
+}
+
+img,
+svg,
+video {
+  max-width: 100%;
+  height: auto;
+}
+
+figure {
+  margin-inline: 0;
+}
+
+figcaption {
+  color: var(--muted);
+  font-size: var(--step--1);
+  font-family: var(--sans);
+}
+
+/* Links are quiet, but the rule is part of the affordance: a hairline-coloured
+   underline (#e6e4de on #fafaf7) is invisible, so links in prose look like
+   plain text. currentColor at 40% reads clearly and still stays out of the
+   way of the prose. */
+a {
+  color: inherit;
+  text-decoration-line: underline;
+  text-decoration-thickness: 1px;
+  text-decoration-color: color-mix(in srgb, currentColor 45%, transparent);
+  transition: color 120ms linear, text-decoration-color 120ms linear;
+}
+
 a:hover {
+  color: var(--accent);
   text-decoration-color: currentColor;
 }
 
@@ -105,63 +250,18 @@ a:hover {
   border-radius: 2px;
 }
 
-hr {
-  border: 0;
-  border-top: 1px solid var(--rule);
-  margin: 2.5rem 0;
-}
-
-code,
-pre {
-  font-family: var(--mono);
-  font-size: 0.9em;
-}
-code {
-  background: var(--accent-soft);
-  padding: 0.1em 0.35em;
-  border-radius: var(--radius);
-}
-pre {
-  background: var(--surface);
-  border: 1px solid var(--rule);
-  border-radius: var(--radius);
-  padding: 1rem 1.15rem;
-  overflow-x: auto;
-}
-pre code {
-  background: none;
-  padding: 0;
-}
-
-blockquote {
-  border-left: 2px solid var(--rule);
-  padding-left: 1.15rem;
-  color: var(--muted);
-  font-style: italic;
-}
-
-img,
-svg {
-  max-width: 100%;
-  height: auto;
-}
-
-/* --- layout ------------------------------------------------------- */
+/* --- layout -------------------------------------------------------- */
 
 .wrap {
   width: 100%;
-  max-width: calc(var(--measure) + var(--gutter) * 2);
+  max-width: calc(var(--page) + var(--gutter) * 2);
   margin-inline: auto;
   padding-inline: var(--gutter);
 }
 
-.wrap--wide {
-  max-width: 74rem;
-}
-
 main {
   flex: 1 0 auto;
-  padding-block: var(--space) 4rem;
+  padding-block: var(--s5) var(--s6);
 }
 
 .visually-hidden {
@@ -177,158 +277,204 @@ main {
   position: absolute;
   left: -9999px;
   top: 0;
-  background: var(--surface);
+  background: var(--bg);
   color: var(--ink);
-  padding: 0.6rem 1rem;
-  border: 1px solid var(--rule);
+  padding: var(--s1) var(--s2);
   z-index: 10;
 }
+
 .skip-link:focus {
-  left: 1rem;
-  top: 1rem;
+  left: var(--gutter);
+  top: var(--s1);
 }
 
-/* --- header / footer --------------------------------------------- */
+/* --- header -------------------------------------------------------- */
 
 .site-header {
-  border-bottom: 1px solid var(--rule);
-  background: var(--bg);
+  border-bottom: var(--rule);
 }
+
 .site-header__inner {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
   justify-content: space-between;
-  gap: 0.5rem 1.5rem;
-  padding-block: 1.35rem;
-}
-.site-header__brand {
-  font-family: var(--serif);
-  font-size: 1.2rem;
-  font-weight: 600;
-  color: var(--ink);
-  text-decoration: none;
-  letter-spacing: -0.01em;
-}
-.site-header__brand span {
-  color: var(--muted);
-  font-family: var(--sans);
-  font-size: 0.78rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  display: block;
-}
-.site-nav {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1.25rem;
-  font-size: 0.94rem;
-}
-.site-nav a {
-  color: var(--muted);
-  text-decoration: none;
-}
-.site-nav a:hover,
-.site-nav a[aria-current="page"] {
-  color: var(--ink);
-  text-decoration: underline;
+  gap: var(--s2) var(--s4);
+  padding-block: var(--s3);
 }
 
-.site-footer {
-  border-top: 1px solid var(--rule);
-  padding-block: 2.5rem 3rem;
-  color: var(--muted);
-  font-size: 0.9rem;
+.site-brand {
+  display: block;
+  text-decoration: none;
+  color: var(--ink);
 }
-.site-footer__inner {
+
+.site-brand__name {
   display: flex;
-  flex-wrap: wrap;
-  gap: 1rem 2rem;
-  justify-content: space-between;
+  align-items: center;
+  gap: var(--s1);
+  font-family: var(--sans);
+  font-size: 1.125rem;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  line-height: 1.2;
 }
-.site-footer p {
-  margin: 0;
+
+.site-brand__mark {
+  color: var(--accent);
+  flex: none;
+}
+
+.site-brand__tagline {
+  display: block;
+  /* line up with the wordmark text, not with the square mark */
+  margin-top: 0.35rem;
+  margin-left: calc(16px + var(--s1));
+  color: var(--muted);
+  font-family: var(--sans);
+  font-size: var(--step--1);
+  line-height: 1.4;
+  /* The tagline is one line wherever it fits: 34ch broke "What's rising in tech
+     and AI, with sources." onto two short lines on every screen. */
   max-width: 46ch;
 }
 
-/* --- post list ---------------------------------------------------- */
-
-.section-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 1rem;
-  border-bottom: 1px solid var(--rule);
-  padding-bottom: 0.6rem;
-  margin-bottom: 2rem;
-}
-.section-head h1,
-.section-head h2 {
-  margin: 0;
-}
-.section-head__count {
-  color: var(--muted);
-  font-size: 0.88rem;
-}
-
-.post-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-.post-card {
-  padding-block: 1.6rem;
-  border-bottom: 1px solid var(--rule);
-}
-.post-card:first-child {
-  padding-top: 0;
-}
-.post-card__title {
-  margin: 0 0 0.35rem;
-  font-size: clamp(1.25rem, 2.6vw, 1.5rem);
-}
-.post-card__title a {
-  color: var(--ink);
-  text-decoration: none;
-}
-.post-card__title a:hover {
-  color: var(--accent);
-  text-decoration: underline;
-}
-.post-card__desc {
-  margin: 0 0 0.7rem;
-  max-width: var(--measure);
-}
-.post-card__meta {
+.site-nav {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.35rem 0.85rem;
-  color: var(--muted);
-  font-size: 0.84rem;
   align-items: center;
+  gap: var(--s1) var(--s3);
+  font-family: var(--sans);
+  font-size: 0.9375rem;
+  line-height: 1;
+}
+
+.site-nav a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px; /* comfortable tap target on touch screens */
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.site-nav a:hover {
+  color: var(--accent);
+}
+
+/* Current section: a real underline rather than a shadow, in the house style
+   of rules and whitespace. */
+.site-nav a[aria-current="page"] {
+  color: var(--ink);
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-decoration-color: var(--accent);
+  text-underline-offset: 6px;
+}
+
+/* --- footer -------------------------------------------------------- */
+
+.site-footer {
+  border-top: var(--rule);
+  padding-block: var(--s4) var(--s5);
+  color: var(--muted);
+  font-family: var(--sans);
+  font-size: var(--step--1);
+  line-height: 1.6;
+}
+
+.site-footer__inner {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+}
+
+.site-footer p {
+  margin: 0;
+  max-width: 58ch;
+}
+
+.site-footer a {
+  color: var(--muted);
+  text-decoration-color: transparent;
+}
+
+.site-footer a:hover {
+  color: var(--accent);
+}
+
+/* --- shared list furniture ----------------------------------------- */
+
+/* Page headings own the top of a page (see the h1 scale above); this only
+   spaces them off the content below. */
+.page-title {
+  margin: 0 0 var(--s4);
+}
+
+/* Pipeline strings can carry a bare URL: an item title straight off Hacker
+   News, or a teaser built from one. One unbreakable token is enough to push
+   the whole page sideways on a narrow screen, so the blocks that render those
+   strings are allowed to break inside a word when they have to. */
+.featured__title,
+.article__title,
+.post-row__title,
+.featured__teaser,
+.post-row__teaser {
+  overflow-wrap: anywhere;
+}
+
+/* Small quiet label above a block: "Latest", "2026", "Sources". Normal case,
+   not tracked-out caps, so it reads as an editorial kicker and not as a
+   widget label. */
+.section-label,
+.sources__label,
+.year__label {
+  margin: 0 0 var(--s2);
+  color: var(--muted);
+  font-family: var(--sans);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
 }
 
 .tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
+  display: inline;
   padding: 0;
   margin: 0;
   list-style: none;
-}
-.tags a,
-.tag-chip {
-  display: inline-block;
-  padding: 0.15rem 0.5rem;
-  border: 1px solid var(--rule);
-  border-radius: 999px;
+  font-family: var(--sans);
+  font-size: var(--step--1);
   color: var(--muted);
-  font-size: 0.78rem;
+}
+
+.tags li {
+  display: inline;
+}
+
+.tags li + li::before {
+  content: "·";
+  /* the separator has to be readable: a hairline dot on a light page is not */
+  margin-inline: 0.45em;
+  color: var(--muted);
+}
+
+.tags a {
+  color: var(--muted);
   text-decoration: none;
 }
+
 .tags a:hover {
-  border-color: var(--accent);
   color: var(--accent);
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s1) var(--s2);
+  color: var(--muted);
+  font-family: var(--sans);
+  font-size: var(--step--1);
+  font-variant-numeric: tabular-nums;
 }
 
 .empty {
@@ -336,167 +482,421 @@ main {
   font-style: italic;
 }
 
-/* --- article ------------------------------------------------------ */
+/* --- home: featured article --------------------------------------- */
 
-.article-header {
-  border-bottom: 1px solid var(--rule);
-  padding-bottom: 1.5rem;
-  margin-bottom: 2.25rem;
+.featured {
+  padding-bottom: var(--s5);
+  border-bottom: var(--rule);
 }
-.article-header h1 {
-  margin-bottom: 0.5rem;
+
+.featured__title {
+  margin: 0 0 var(--s2);
+  font-size: var(--step-2);
 }
-.article-header__desc {
+
+.featured__title a {
+  text-decoration: none;
+  text-decoration-color: transparent;
+}
+
+.featured__teaser {
+  margin: 0 0 var(--s2);
+  max-width: var(--measure);
   color: var(--muted);
-  font-size: 1.08rem;
+}
+
+.featured__teaser + .meta {
+  margin-top: var(--s2);
+}
+
+/* --- home / tag / archive: rows ------------------------------------ */
+
+.post-rows {
+  list-style: none;
+  padding: 0;
+  margin: var(--s5) 0 0;
+}
+
+.post-row {
+  padding-block: var(--s4);
+  border-bottom: var(--rule);
+}
+
+.post-row:first-child {
+  padding-top: 0;
+}
+
+.post-row__date {
+  display: block;
+  color: var(--muted);
+  font-family: var(--sans);
+  font-size: var(--step--1);
+  font-variant-numeric: tabular-nums;
+}
+
+.post-row__title {
+  margin: var(--s1) 0 0;
+  font-size: var(--step-1);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  /* titles wrap to two or three lines; 1.15 crowds them */
+  line-height: 1.3;
+}
+
+.post-row__title a {
+  text-decoration: none;
+  text-decoration-color: transparent;
+}
+
+.post-row__teaser {
+  margin: var(--s1) 0 0;
+  max-width: var(--measure);
+  color: var(--muted);
+  font-size: 1rem;
+  line-height: 1.55;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.post-row__tags {
+  display: block;
+  margin-top: var(--s1);
+  color: var(--muted);
+  font-family: var(--sans);
+  font-size: var(--step--1);
+}
+
+.post-row__tags a {
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.post-row__tags a:hover {
+  color: var(--accent);
+}
+
+.post-row__tags li + li::before {
+  content: "·";
+  margin-inline: 0.45em;
+  color: var(--muted);
+}
+
+/* --- article ------------------------------------------------------- */
+
+/* The measure lives here, in the serif reading context, and the article's own
+   rules (disclosure, sources, post nav) inherit that width so every hairline
+   ends where the prose ends. */
+.article {
   max-width: var(--measure);
 }
-.article-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem 1rem;
+
+.article__title {
+  margin: 0 0 var(--s3);
+}
+
+.article__meta {
+  margin-bottom: var(--s2);
+}
+
+.article__disclosure {
+  margin: 0 0 var(--s5);
+  padding-bottom: var(--s4);
+  border-bottom: var(--rule);
   color: var(--muted);
-  font-size: 0.86rem;
-  margin-top: 1rem;
+  font-family: var(--sans);
+  font-size: var(--step--1);
+  line-height: 1.6;
 }
 
 .prose {
-  max-width: var(--measure);
-}
-.prose > p:first-of-type {
-  font-size: 1.06rem;
+  font-family: var(--serif);
+  /* bare URLs in a source-heavy article must not push the page sideways */
+  overflow-wrap: break-word;
 }
 
-.disclosure {
-  margin-top: 3rem;
-  padding: 1.1rem 1.25rem;
-  background: var(--surface);
-  border: 1px solid var(--rule);
-  border-left: 3px solid var(--accent);
-  border-radius: var(--radius);
+.prose > p:first-of-type {
+  font-size: 1.06em;
+}
+
+.prose h2 {
+  font-size: var(--step-4);
+}
+
+.prose pre,
+.prose table {
+  font-size: 0.86em;
+}
+
+.prose ol,
+.prose ul {
+  padding-left: 1.35em;
+}
+
+.prose li {
+  margin-bottom: var(--s1);
+}
+
+.prose li::marker {
   color: var(--muted);
-  font-size: 0.9rem;
-  max-width: var(--measure);
 }
-.disclosure p {
-  margin: 0 0 0.5rem;
+
+/* The engine appends its own Sources section to the markdown body; the post
+   template renders the same list from structured frontmatter (title + domain),
+   so the duplicate is hidden here. `.prose--body-sources` is only applied when
+   the body really does end with that section. */
+.prose--body-sources > h2:last-of-type,
+.prose--body-sources > h2:last-of-type ~ * {
+  display: none;
 }
-.disclosure p:last-child {
-  margin-bottom: 0;
+
+.sources {
+  margin-top: var(--s5);
+  padding-top: var(--s4);
+  border-top: var(--rule);
+}
+
+.sources__list {
+  padding-left: 1.35em;
+  margin: 0;
+  font-family: var(--sans);
+  font-size: var(--step--1);
+  line-height: 1.6;
+}
+
+.sources__list li {
+  margin-bottom: var(--s2);
+}
+
+.sources__list li::marker {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.sources__domain {
+  display: block;
+  color: var(--muted);
+  overflow-wrap: anywhere;
 }
 
 .post-nav {
   display: flex;
   flex-wrap: wrap;
-  gap: 1rem;
+  gap: var(--s3) var(--s5);
   justify-content: space-between;
-  margin-top: 3rem;
-  padding-top: 1.5rem;
-  border-top: 1px solid var(--rule);
-  font-size: 0.92rem;
+  margin-top: var(--s5);
+  padding-top: var(--s3);
+  border-top: var(--rule);
+  font-family: var(--sans);
+  font-size: 0.9375rem;
 }
+
 .post-nav a {
+  display: block;
+  max-width: 24ch;
   text-decoration: none;
+  text-decoration-color: transparent;
+  line-height: 1.4;
 }
+
 .post-nav span {
   display: block;
+  margin-bottom: 0.15rem;
   color: var(--muted);
-  font-size: 0.76rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  font-size: var(--step--1);
 }
 
-/* --- archive / tags ---------------------------------------------- */
+/* --- archive ------------------------------------------------------- */
 
-.year-group {
-  margin-bottom: 2.25rem;
+.year {
+  margin-bottom: var(--s5);
 }
-.year-group h2 {
-  margin: 0 0 0.75rem;
-  font-size: 1.1rem;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--muted);
-  font-family: var(--sans);
-}
-.year-group ul {
+
+.year__list {
   list-style: none;
   padding: 0;
   margin: 0;
 }
-.year-group li {
+
+.year__list li {
   display: flex;
-  gap: 1rem;
-  padding-block: 0.4rem;
-  border-bottom: 1px dashed var(--rule);
+  gap: var(--s3);
+  align-items: baseline;
+  padding-block: var(--s2);
+  border-bottom: var(--rule);
 }
-.year-group time {
+
+.year__list time {
+  flex: none;
+  min-width: 6.5rem;
   color: var(--muted);
+  font-family: var(--sans);
+  font-size: var(--step--1);
   font-variant-numeric: tabular-nums;
-  font-size: 0.85rem;
-  min-width: 7.5rem;
 }
 
-.tag-cloud {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.6rem 0.75rem;
-  padding: 0;
+/* --- tags index ---------------------------------------------------- */
+
+/* grid rather than CSS columns, so the hairlines line up across both columns */
+.tag-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: var(--s5);
   list-style: none;
+  padding: 0;
+  margin: 0;
 }
 
-/* --- subscribe ---------------------------------------------------- */
+@media (max-width: 40rem) {
+  .tag-list {
+    grid-template-columns: 1fr;
+  }
+}
+
+.tag-list li {
+  padding-block: var(--s2);
+  border-bottom: var(--rule);
+  font-family: var(--sans);
+  font-size: 0.9375rem;
+}
+
+.tag-list__count {
+  color: var(--muted);
+  font-size: var(--step--1);
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- subscribe (renders only when configured) ---------------------- */
 
 .subscribe {
-  margin-top: 2.5rem;
-  padding-top: 1.75rem;
-  border-top: 1px solid var(--rule);
+  margin-top: var(--s5);
+  padding-top: var(--s3);
+  border-top: var(--rule);
   max-width: var(--measure);
 }
+
+.subscribe h2 {
+  margin-top: 0;
+  font-size: var(--step-1);
+}
+
+.subscribe p {
+  color: var(--muted);
+  font-size: 1rem;
+}
+
 .subscribe form {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.6rem;
-  margin-top: 0.75rem;
+  gap: var(--s1);
+  margin-top: var(--s2);
 }
+
 .subscribe input[type="email"] {
-  flex: 1 1 15rem;
-  padding: 0.55rem 0.7rem;
-  border: 1px solid var(--rule);
+  flex: 1 1 14rem;
+  padding: 0.6rem 0.7rem;
+  border: var(--rule);
   border-radius: var(--radius);
-  background: var(--surface);
+  background: var(--bg);
   color: var(--ink);
   font: inherit;
+  font-size: 1rem;
 }
+
 .subscribe button {
-  padding: 0.55rem 1rem;
-  border: 1px solid var(--accent);
+  padding: 0.6rem 1rem;
+  border: var(--rule);
   border-radius: var(--radius);
-  background: var(--accent);
-  color: #fff;
+  background: transparent;
+  color: var(--ink);
   font: inherit;
+  font-size: 1rem;
   cursor: pointer;
 }
-@media (prefers-color-scheme: dark) {
-  .subscribe button {
-    color: #12161c;
-  }
+
+.subscribe button:hover {
+  color: var(--accent);
+  border-color: var(--accent);
 }
+
 .subscribe small {
   display: block;
-  margin-top: 0.5rem;
+  margin-top: var(--s1);
+  color: var(--muted);
+  font-size: var(--step--1);
+}
+
+/* --- touch targets ------------------------------------------------- */
+
+/* Standalone links in lists (archive rows, the tag index, the source list)
+   and the footer line get a comfortable target on touch screens, which is
+   every layout up to tablet width. The header nav is 44px tall everywhere. */
+@media (max-width: 48rem) {
+  .year__list a,
+  .tag-list a,
+  .sources__list a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+  }
+
+  .site-footer a {
+    padding-block: 0.55rem;
+  }
+}
+
+/* --- 404 ----------------------------------------------------------- */
+
+.not-found {
+  max-width: var(--measure);
+}
+
+.not-found p {
   color: var(--muted);
 }
 
-/* --- 404 ---------------------------------------------------------- */
+/* --- print --------------------------------------------------------- */
 
-.not-found {
-  text-align: left;
-  padding-block: 3rem;
+@media print {
+  :root {
+    --bg: #fff;
+    --ink: #000;
+    --muted: #444;
+    --hairline: #bbb;
+    --accent: #000;
+  }
+
+  .site-header,
+  .site-footer,
+  .post-nav,
+  .subscribe,
+  .skip-link {
+    display: none;
+  }
+
+  body {
+    font-size: 11.5pt;
+  }
+
+  .article,
+  .prose,
+  .sources {
+    max-width: none;
+  }
+
+  a[href^="http"]::after {
+    content: " (" attr(href) ")";
+    font-family: var(--sans);
+    font-size: 0.85em;
+    color: #444;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  * {
+  *,
+  *::before,
+  *::after {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
   }

@@ -39,3 +39,6 @@ __pycache__/
 
 # SQLite
 *.sqlite
+
+# Design-review screenshots (regenerated on request, not part of the build)
+docs/screenshots/

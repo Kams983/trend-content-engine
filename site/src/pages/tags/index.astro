@@ -7,23 +7,19 @@ const posts = sortPosts(await getCollection("posts"));
 const tags = allTags(posts);
 ---
 
-<BaseLayout title="Topics" description={`Every topic covered by ${SITE.title}, with post counts.`}>
-  <section>
-    <div class="section-head">
-      <h1>Topics</h1>
-      <span class="section-head__count">{tags.length} tags</span>
-    </div>
+<BaseLayout title="Tags" description={`Every topic covered by ${SITE.title}, with article counts.`}>
+  <h1 class="page-title">Tags</h1>
 
-    {tags.length === 0 ? (
-      <p class="empty">No topics yet.</p>
-    ) : (
-      <ul class="tag-cloud">
-        {tags.map(({ tag, count }) => (
-          <li>
-            <a class="tag-chip" href={`/tags/${tag}`}>{tag} · {count}</a>
-          </li>
-        ))}
-      </ul>
-    )}
-  </section>
+  {tags.length === 0 ? (
+    <p class="empty">No tags yet.</p>
+  ) : (
+    <ul class="tag-list">
+      {tags.map(({ tag, count }) => (
+        <li>
+          <a href={`/tags/${tag}`}>{tag}</a>
+          <span class="tag-list__count"> · {count}</span>
+        </li>
+      ))}
+    </ul>
+  )}
 </BaseLayout>

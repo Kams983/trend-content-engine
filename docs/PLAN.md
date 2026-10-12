@@ -153,3 +153,67 @@ Run the full pytest suite after every phase.
   tokens instead of hard-coding it. Two guardrails hold the line:
   `tests/test_branding.py` in Python and `site/scripts/check-brand.mjs`, which
   runs inside `npm run build` and fails if the engine name reaches `dist/`.
+
+## 6. Site UI redesign (2026-10-11) — what was wrong with the first UI
+
+Audited the shipped Astro front end before changing anything. The pipeline, the
+content schema, the routes, the SEO/RSS/sitemap output and the zero-client-JS
+constraint are untouched by this pass; only CSS, layouts and templates changed.
+
+| Problem | Why it matters |
+| --- | --- |
+| Serif headings over a sans body, both at generic sizes | No hierarchy: the page title, post titles and index rows all compete. A publication should lead with type. |
+| `.section-head` H1 "Latest" plus a post counter at the top of the home page | A large heading and a meaningless number push the actual article down the page. |
+| Boxes and pills: bordered tag chips (`border-radius: 999px`), a boxed `.disclosure` with an accent left border, bordered `pre` and inputs | Reads as a generic app template rather than an editorial page, and the pill is the loudest element in a row. |
+| Accent `#255e8a` used for body links | Links compete with the prose, and the accent is not reserved for interaction. |
+| Header printed "DAILY TREND DIGEST" in tracked-out uppercase | Reads as a widget label, and it hid the tagline, which is the honest description of the publication. |
+| Pure-white surfaces on a `#f8f7f4` page; dark mode `#121316` with `#ecedee` text | Surfaces popped out of the page, and dark mode was harsher than it needed to be. |
+| Secondary text at `0.78–0.9rem`, hairlines `#e3e1db` | Too small to read comfortably, and the rule nearly vanished against the page. |
+| Disclosure, tags and sources styled as components rather than as text | The AI-assistance note is a fact about the article, not a callout; sources are references, not bullets to decorate. |
+| Nav had no current-page state; the footer mixed prose, links and copyright in one row | No orientation while browsing, and the footer did not line up with the content column. |
+| No print stylesheet | Printing carried the navigation and the footer. |
+
+Specific fixes applied to the home page (raised before the redesign, all done):
+the "Latest" H1 and the counter are now a small muted section label; the article
+title is the dominant element; teasers are muted and smaller than titles; tag
+pills are plain muted text; the footer disclosure sits in the same column as the
+header and content as a quiet small footer; the header label is the tagline in
+normal case; the SVG mark sits beside the wordmark; the current nav item has an
+accent state; and dark mode uses off-white `#EDEDED` text on `#0F0F10`.
+
+### Second pass: what the review found and changed
+
+Round one was reviewed with rendered screenshots plus DOM measurement at 375,
+768 and 1280 in both colour schemes (scripts kept out of the repo: the browser
+audit measured geometry, computed type, contrast and tap targets, and a pixel
+pass read the finished PNGs for band rhythm and column alignment). Nine flaws
+were found and fixed:
+
+| Flaw (evidence) | Fix |
+| --- | --- |
+| Home's `<h1>` was the word "Latest" (rendered tiny), so the page's only h1 was a label and the document outline was nonsense. | The masthead is the home page's `h1`, visually hidden; the visible label is `<p class="section-label">`, small, muted, normal case. |
+| Page titles on Archive, Tags, tag and 404 pages rendered at 12px uppercase, identically to the small labels, so those pages had no dominant element (computed 12px vs the h1 scale in the brief). | `.page-title` gives them the real h1 scale: 32px at 375, 44px at 1280, weight 700. |
+| The reading column measured 770px at 1280, over the 720px cap: `66ch` is wider than 720px in the fallback serif of this machine. | `--measure: min(66ch, 45rem)`; the article and every teaser now measure 720px. |
+| The current nav item was drawn with `box-shadow: inset 0 -2px 0`, which the house style bans (rules and whitespace only). | A real underline: 2px, accent, 6px offset. |
+| Body links were underlined in `--hairline` (#e6e4de on #fafaf7, about 1.15:1): in prose, links looked like plain text. | Underline at `color-mix(in srgb, currentColor 45%, transparent)`, still 1px with a 3px offset. |
+| Tag separators used the same hairline colour, so tags ran together. | Muted separators with 0.45em spacing. |
+| Row titles were set at line-height 1.15, which crowds a title that wraps to two or three lines. | 1.3. |
+| No `color-scheme`, so dark mode still painted light scrollbars and form furniture. | `color-scheme: light` on `:root`, `dark` under `prefers-color-scheme: dark`. |
+| Archive rows, the tag index and the source list had 17 to 31px tap targets on touch widths. | Those list links get a 44px minimum target up to tablet width; the footer links get vertical padding. |
+
+Verified after the changes: no horizontal overflow at any of the three widths
+(the off-screen skip link is the only element past the viewport), every band on
+a page starts at the same left edge as the header and the footer (160px at 1280,
+31px at 768, 20px at 375), the reading column is 720px, all text pairs stay at
+or above 5.1:1 in light mode and 6.8:1 in dark mode, the tagline is one line
+instead of two, and no radius above 4px, shadow, gradient, sticky element or
+`<img>` exists anywhere. `npm run build` and `npm run check:brand` pass, the
+built output contains one CSS file and no JavaScript beyond the two JSON-LD
+blocks on post pages.
+
+Not verified: Lighthouse was not installed on this machine and was not added, so
+no Lighthouse score is reported. The preview panel would not composite for the
+full 30-image eyeball pass, so the screenshots in `docs/screenshots/` were
+reviewed by looking at the home page at 1280 and live mobile renders directly,
+and by a pixel audit of the saved PNGs (ground colour, content bands, gaps,
+left edges, hairline runs) rather than by eye at every breakpoint.

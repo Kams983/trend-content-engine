@@ -3,15 +3,13 @@ import { SITE } from "../lib/site";
 
 const path = Astro.url.pathname;
 const links = [
-  { href: "/", label: "Latest" },
   { href: "/archive", label: "Archive" },
-  { href: "/tags", label: "Topics" },
+  { href: "/tags", label: "Tags" },
   { href: "/about", label: "About" },
   { href: "/rss.xml", label: "RSS" },
 ];
 
 function current(href: string): "page" | undefined {
-  if (href === "/") return path === "/" ? "page" : undefined;
   if (href === "/rss.xml") return undefined;
   return path.startsWith(href) ? "page" : undefined;
 }
@@ -19,9 +17,25 @@ function current(href: string): "page" | undefined {
 
 <header class="site-header">
   <div class="wrap site-header__inner">
-    <a class="site-header__brand" href="/">
-      {SITE.title}
-      <span>Daily trend digest</span>
+    <a class="site-brand" href="/">
+      <span class="site-brand__name">
+        <svg
+          class="site-brand__mark"
+          width="16"
+          height="16"
+          viewBox="0 0 128 128"
+          aria-hidden="true"
+          focusable="false"
+        >
+          <rect width="128" height="128" rx="30" fill="currentColor" />
+          <g fill="none" stroke="var(--bg)" stroke-width="14" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M40 68 64 44l24 24" />
+            <path d="M64 44v44" />
+          </g>
+        </svg>
+        {SITE.title}
+      </span>
+      <span class="site-brand__tagline">{SITE.tagline}</span>
     </a>
     <nav class="site-nav" aria-label="Primary">
       {links.map((link) => (

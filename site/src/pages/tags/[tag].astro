@@ -20,15 +20,13 @@ const posts = postsWithTag(sortPosts(await getCollection("posts")), tag);
   title={`Posts tagged “${tag}”`}
   description={`${posts.length} post${posts.length === 1 ? "" : "s"} tagged “${tag}” on ${SITE.title}.`}
 >
-  <section>
-    <div class="section-head">
-      <h1>{tag}</h1>
-      <span class="section-head__count">
-        {posts.length} {posts.length === 1 ? "post" : "posts"} · <a href="/tags">all topics</a>
-      </span>
-    </div>
-    <div class="post-list">
-      {posts.map((post) => <PostCard post={post} />)}
-    </div>
-  </section>
+  <h1 class="page-title">{tag}</h1>
+  <p class="meta">
+    <span>{posts.length} {posts.length === 1 ? "article" : "articles"}</span>
+    <span><a href="/tags">All tags</a></span>
+  </p>
+
+  <ul class="post-rows">
+    {posts.map((post) => <PostCard post={post} />)}
+  </ul>
 </BaseLayout>

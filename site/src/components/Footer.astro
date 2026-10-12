@@ -6,20 +6,14 @@ const origin = Astro.site ?? new URL("https://example.com");
 
 <footer class="site-footer">
   <div class="wrap site-footer__inner">
-    <div>
-      <p>
-        <strong>{SITE.title}</strong> drafts every article from a cluster of cited
-        sources with a large language model, then validates it before publishing.
-      </p>
-      <p>Nothing is published without a source list, and every post is marked AI-assisted.</p>
-    </div>
-    <div>
-      <p>
-        <a href="/about">How this works</a> ·
-        <a href={absolute(origin, "/rss.xml")}>RSS</a> ·
-        <a href="/archive">Archive</a>
-      </p>
-      <p>© {year} {SITE.author}</p>
-    </div>
+    <p>
+      Every article is drafted by a language model from the sources it lists, then checked for length,
+      citations and placeholders before a person approves it.
+    </p>
+    <p>
+      © {year} {SITE.author} ·
+      <a href="/about">About</a> ·
+      <a href={absolute(origin, "/rss.xml")}>RSS</a>
+    </p>
   </div>
 </footer>

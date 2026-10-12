@@ -3,28 +3,48 @@ import { getCollection } from "astro:content";
 import BaseLayout from "../layouts/BaseLayout.astro";
 import PostCard from "../components/PostCard.astro";
 import Subscribe from "../components/Subscribe.astro";
-import { SITE, sortPosts } from "../lib/site";
+import { SITE, formatDate, postPath, readingTime, sortPosts } from "../lib/site";
 
 const posts = sortPosts(await getCollection("posts"));
+const [featured, ...rest] = posts;
+const featuredMinutes = featured ? readingTime(featured.body ?? "") : 0;
 ---
 
 <BaseLayout title={SITE.title} description={SITE.description}>
-  <section>
-    <div class="section-head">
-      <h1>Latest</h1>
-      <span class="section-head__count">
-        {posts.length} {posts.length === 1 ? "post" : "posts"}
-      </span>
-    </div>
+  {/* The masthead is the page's h1 here; the visible label is a small muted
+      kicker so the newest article, not the word "Latest", dominates the fold. */}
+  <h1 class="visually-hidden">{SITE.title}</h1>
 
-    {posts.length === 0 ? (
-      <p class="empty">No posts yet. The first scheduled run will publish here.</p>
-    ) : (
-      <div class="post-list">
-        {posts.map((post) => <PostCard post={post} />)}
-      </div>
-    )}
-  </section>
+  {posts.length === 0 ? (
+    <>
+      <p class="section-label">Latest</p>
+      <p class="empty">No articles yet. The first scheduled run publishes here.</p>
+    </>
+  ) : (
+    <>
+      <p class="section-label">Latest</p>
+
+      <article class="featured">
+        <h2 class="featured__title"><a href={postPath(featured.data.slug)}>{featured.data.title}</a></h2>
+        <p class="featured__teaser">{featured.data.description}</p>
+        <div class="meta">
+          <time datetime={featured.data.date.toISOString()}>{formatDate(featured.data.date)}</time>
+          <span>{featuredMinutes} min read</span>
+          {featured.data.tags.length > 0 && (
+            <ul class="tags">
+              {featured.data.tags.map((tag) => <li><a href={`/tags/${tag}`}>{tag}</a></li>)}
+            </ul>
+          )}
+        </div>
+      </article>
+
+      {rest.length > 0 && (
+        <ul class="post-rows">
+          {rest.map((post) => <PostCard post={post} />)}
+        </ul>
+      )}
+    </>
+  )}
 
   <Subscribe />
 </BaseLayout>
