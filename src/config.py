@@ -154,7 +154,7 @@ class Settings:
     min_sources_with_data: int = 2
 
     # --- analysis -------------------------------------------------------
-    cluster_threshold: float = 0.40
+    cluster_threshold: float = 0.45
     topic_similarity_threshold: float = 0.6
     topic_lookback_days: int = 14
     topic_retention_days: int = 60
@@ -283,7 +283,7 @@ def load_settings(
         github_limit=_int("GITHUB_LIMIT", 30),
         reddit_limit=_int("REDDIT_LIMIT", 30),
         min_sources_with_data=_int("MIN_SOURCES_WITH_DATA", 2),
-        cluster_threshold=_float("CLUSTER_THRESHOLD", 0.40),
+        cluster_threshold=_float("CLUSTER_THRESHOLD", 0.45),
         topic_similarity_threshold=_float("TOPIC_SIMILARITY_THRESHOLD", 0.6),
         topic_lookback_days=_int("TOPIC_LOOKBACK_DAYS", 14),
         topic_retention_days=_int("TOPIC_RETENTION_DAYS", 60),

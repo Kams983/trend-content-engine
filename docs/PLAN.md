@@ -9,7 +9,7 @@ Status: written before any code change, per the operating rules.
 | Orchestrator | `src/main.py` | top-to-bottom script, hard-coded `SITE_URL=""`, `print`-free but no run outcomes, catches nothing structurally |
 | Ingest | `src/ingest/{hackernews,arxiv,reddit,github_trending}.py` | each builds its own `requests` calls, no shared retry/backoff, own User-Agent |
 | Normalize | `src/ingest/normalize.py` | stdlib HTML strip, common schema — good, keep |
-| Cluster | `src/analysis/cluster.py` | greedy union-find over cosine similarity — good, keep |
+| Cluster | `src/analysis/cluster.py` | greedy single-linkage union-find over cosine similarity — chained unrelated items together; now greedy centroid assignment |
 | Embed | `src/analysis/embed.py` | eager `SentenceTransformer` load at import |
 | Score | `src/analysis/score.py` | **identity is the cluster label** (first title) → novelty ≈ 1.0 and velocity ≈ 1.0 every day; size/source diversity ignored |
 | Generate | `src/generate/draft_article.py` | hard-codes `openai/gpt-oss-120b`, docstring still says llama, returns `None` both for "no API key" and "thin day" |
@@ -106,10 +106,17 @@ Run the full pytest suite after every phase.
 
 ## 5. Deviations from this plan (recorded after implementation)
 
-* **`CLUSTER_THRESHOLD` tuned to 0.40**, not the inherited 0.45. Measured on the
-  120 fixtures (see `scripts/precompute_fixture_embeddings.py`): 0.40 yields four
-  eligible clusters with a 12-item / 2-source top cluster, while 0.45 leaves two
-  and 0.38 starts merging unrelated topics into a 14-item blob.
+* **`CLUSTER_THRESHOLD` is 0.45, and clustering is centroid-based.** Single-linkage
+  (union-find) at 0.40 chained across near-duplicates: one live ingest of 119
+  items produced a 16-item cluster mixing mainframe emulation, agentic policy
+  papers and robotics, because A≈B and B≈C merged A with C. `cluster()` now
+  assigns each item to the closest *centroid* above the threshold, so a chain
+  neighbour no longer drags in unrelated items. At 0.45 the same live ingest
+  tops out at 3-item clusters, while the 120 fixtures still yield two eligible
+  (3+ items, 2+ sources) clusters, which the tests assert. The trade-off is
+  fewer eligible candidates per day: ~1 instead of 4 on that ingest, so thin
+  days skip rather than draft from a mixed blob. 0.42 restores recall (~3
+  eligible) at the cost of 5–7 item clusters; set `CLUSTER_THRESHOLD` to taste.
 * **Extra outcomes.** `DRAFTED` (stage A succeeded with `REQUIRE_APPROVAL=false`)
   was added, because `PUBLISHED` would be a lie at that point. Individual ingest
   failures are recorded as `SOURCE_FAILED`, deliberately *not* prefixed with

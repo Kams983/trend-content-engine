@@ -52,7 +52,7 @@ asserts no outbound template can carry an engine name, and `npm run build`
    │  analysis/embed.py (MiniLM, 384-d, lazy)                         │
    │        │                                                         │
    │        ▼                                                         │
-   │  analysis/cluster.py ── union-find over cosine similarity        │
+   │  analysis/cluster.py ── greedy centroid clustering               │
    │        │                                                         │
    │        ▼                                                         │
    │  analysis/topics.py ── centroid identity → stable topic_id       │

@@ -1,6 +1,10 @@
 """Group normalised items into clusters by embedding cosine similarity.
 
-Simple greedy single-linkage via Union-Find — no scipy or sklearn needed.
+Greedy centroid assignment: an item joins the existing cluster whose centroid
+it is closest to, and only when that similarity clears ``threshold``; otherwise
+it starts a new cluster. Comparing against the centroid instead of "any member"
+is what stops A–B–C chain merges from gluing A to C, which is how unrelated
+papers used to end up in one giant cluster. No scipy or sklearn needed.
 Returns ``list[list[dict]]``, one sub-list per cluster.
 """
 
@@ -14,11 +18,12 @@ from .embed import embed_matrix
 
 logger = logging.getLogger(__name__)
 
-#: Items with cosine similarity >= threshold are grouped together.
-#: 0.40 was tuned on the 120 frozen fixtures (see
-#: scripts/precompute_fixture_embeddings.py): low enough to form rich
-#: cross-source clusters, high enough to keep them coherent.
-DEFAULT_THRESHOLD = 0.40
+#: Minimum cosine similarity between an item and a cluster centroid for the
+#: item to join that cluster. 0.45 was tuned on the 120 frozen fixtures *and*
+#: a live 119-item ingest (see scripts/precompute_fixture_embeddings.py):
+#: unrelated arXiv abstracts already sit near 0.42 just from shared vocabulary,
+#: so anything looser starts merging distinct stories.
+DEFAULT_THRESHOLD = 0.45
 #: How much of an item's content to include in the embedding text.
 CONTENT_CHARS = 300
 
@@ -34,49 +39,44 @@ def build_embed_text(item: dict) -> str:
     return f"{title} {content}".strip()
 
 
-def cosine_sim_matrix(vecs: np.ndarray) -> np.ndarray:
-    """Pairwise cosine similarity matrix for L2-normalised (or raw) rows."""
-    if vecs.size == 0:
-        return np.zeros((0, 0), dtype=np.float32)
-    norms = np.linalg.norm(vecs, axis=1, keepdims=True)
-    norms = np.where(norms == 0, 1.0, norms)
-    normed = vecs / norms
-    return (normed @ normed.T).astype(np.float32)
-
-
 def cluster(items: list[dict], threshold: float = DEFAULT_THRESHOLD) -> list[list[dict]]:
-    """Cluster *items* into groups of embedding-similar items."""
+    """Cluster *items* into groups of embedding-similar items.
+
+    Single pass over the items in input order: O(n·k) comparisons against the
+    ``k`` running centroids, so cost grows linearly with the number of clusters.
+    Deterministic for a given input order and threshold.
+    """
     if not items:
         return []
 
     vecs = embed_matrix([build_embed_text(it) for it in items])
-    sim = cosine_sim_matrix(vecs)
     n = len(items)
+    if n == 0:
+        return []
 
-    parent = list(range(n))
+    centroids = np.zeros((n, vecs.shape[1]), dtype=np.float32)
+    members: list[list[int]] = []
 
-    def find(x: int) -> int:
-        while parent[x] != x:
-            parent[x] = parent[parent[x]]
-            x = parent[x]
-        return x
-
-    def union(a: int, b: int) -> None:
-        ra, rb = find(a), find(b)
-        if ra != rb:
-            parent[ra] = rb
-
-    for i in range(n):
-        row = sim[i]
-        for j in range(i + 1, n):
-            if row[j] >= threshold:
-                union(i, j)
-
-    groups: dict[int, list[dict]] = {}
     for idx in range(n):
-        groups.setdefault(find(idx), []).append(items[idx])
+        vec = vecs[idx]
+        norm = float(np.linalg.norm(vec))
+        unit = vec / norm if norm else vec
 
-    clusters = sorted(groups.values(), key=lambda c: (-len(c), c[0].get("title", "")))
+        if members:
+            sims = centroids[: len(members)] @ unit
+            best = int(np.argmax(sims))
+            if float(sims[best]) >= threshold:
+                members[best].append(idx)
+                mean = vecs[members[best]].mean(axis=0)
+                mean_norm = float(np.linalg.norm(mean))
+                centroids[best] = mean / mean_norm if mean_norm else mean
+                continue
+
+        centroids[len(members)] = unit
+        members.append([idx])
+
+    clusters = [[items[i] for i in group] for group in members]
+    clusters.sort(key=lambda c: (-len(c), c[0].get("title", "")))
     logger.info("event=clustered items=%d clusters=%d threshold=%s", n, len(clusters), threshold)
     return clusters
 
