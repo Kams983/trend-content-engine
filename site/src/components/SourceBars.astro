@@ -1,0 +1,30 @@
+---
+import type { SourceRow } from "../lib/overview";
+
+interface Props {
+  rows: SourceRow[];
+  total: number;
+  articles: number;
+}
+
+const { rows, total, articles } = Astro.props;
+const articleLabel = `${articles} article${articles === 1 ? "" : "s"}`;
+---
+
+<section class="card card--sources">
+  <div class="card__head">
+    <h2 class="card__title">Where it came from</h2>
+    <p class="card__note">{total} source{total === 1 ? "" : "s"} across {articleLabel}</p>
+  </div>
+  <ul class="bars">
+    {rows.map((row) => (
+      <li class="bars__row">
+        <span class="bars__name">{row.name}</span>
+        <span class="bars__track" aria-hidden="true">
+          <span class="bars__fill" style={`width:${Math.round(row.shareOfMax * 100)}%`}></span>
+        </span>
+        <span class="bars__count">{row.count}</span>
+      </li>
+    ))}
+  </ul>
+</section>

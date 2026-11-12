@@ -7,8 +7,9 @@
   },
   "scripts": {
     "dev": "astro dev",
-    "build": "astro build && npm run check:brand",
+    "build": "astro build && npm run check:brand && npm run check:board",
     "check:brand": "node scripts/check-brand.mjs",
+    "check:board": "node scripts/check-board.mjs",
     "preview": "astro preview",
     "astro": "astro"
   },

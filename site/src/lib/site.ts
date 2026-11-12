@@ -80,6 +80,15 @@ export function formatDateShort(date: Date): string {
   }).format(date);
 }
 
+/** Short day without the year, for tables and captions ("Oct 11"). */
+export function formatDayShort(date: Date): string {
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  }).format(date);
+}
+
 /** Rough reading time from the markdown body. */
 export function readingTime(body: string): number {
   const words = body.trim().split(/\s+/).filter(Boolean).length;

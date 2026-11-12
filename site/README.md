@@ -8,9 +8,14 @@ into `dist/`.
 
 ```bash
 npm install
-npm run build      # output in dist/
+npm run build      # dist/, then the guardrails below
 npm run dev        # local dev server on :4321
 ```
+
+The build ends with two guardrails, so a broken page fails the build rather than
+deploying: `check:brand` fails if an engine name leaks into `dist/`, and
+`check:board` re-derives the home page's numbers from `content/posts/*.md` and
+asserts the built page matches.
 
 ## Configuration
 
@@ -29,7 +34,13 @@ npm run dev        # local dev server on :4321
 * `src/pages/` — home, post, tag index + tag pages, archive, about, 404, `rss.xml`,
   `robots.txt` and build-time OG images under `/og/`.
 * `src/lib/site.ts` — publication identity (`PUBLIC_BRAND_*`), URLs, dates, reading time, sorting, tags.
+* `src/lib/overview.ts` — the home board's numbers (window, cadence, topics, source mix). Pure: posts
+  in, plain data out, no clock, so every build of the same content is identical.
+* `src/components/CadenceStrip.astro`, `MetricTiles.astro`, `TopicTable.astro`, `SourceBars.astro` —
+  the home board's sections; `PostCard.astro` also renders each row of the home feed.
 * `scripts/check-brand.mjs` — build guardrail: fails if the engine name appears in `dist/`.
+* `scripts/check-board.mjs` — build guardrail: parses the post frontmatter independently and fails if
+  the built home page's numbers, cards or cadence ticks disagree with the content.
 * `src/lib/og.ts` — satori + resvg 1200×630 OG images.
 * `src/content.config.ts` — the strict Zod schema; a malformed post fails the build.
 

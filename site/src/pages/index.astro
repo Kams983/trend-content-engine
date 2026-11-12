@@ -1,48 +1,81 @@
 ---
 import { getCollection } from "astro:content";
 import BaseLayout from "../layouts/BaseLayout.astro";
+import CadenceStrip from "../components/CadenceStrip.astro";
+import MetricTiles from "../components/MetricTiles.astro";
+import TopicTable from "../components/TopicTable.astro";
+import SourceBars from "../components/SourceBars.astro";
 import PostCard from "../components/PostCard.astro";
 import Subscribe from "../components/Subscribe.astro";
+import { buildOverview } from "../lib/overview";
 import { SITE, formatDate, postPath, readingTime, sortPosts } from "../lib/site";
 
 const posts = sortPosts(await getCollection("posts"));
-const [featured, ...rest] = posts;
-const featuredMinutes = featured ? readingTime(featured.body ?? "") : 0;
+const overview = buildOverview(posts);
+const [latest, ...rest] = posts;
+const latestMinutes = latest ? readingTime(latest.body ?? "") : 0;
 ---
 
-<BaseLayout title={SITE.title} description={SITE.description}>
-  {/* The masthead is the page's h1 here; the visible label is a small muted
-      kicker so the newest article, not the word "Latest", dominates the fold. */}
+<BaseLayout title={SITE.title} description={SITE.description} board>
+  {/* The masthead is the page's h1 here; the visible labels are the board's
+      captions and card titles. */}
   <h1 class="visually-hidden">{SITE.title}</h1>
 
-  {posts.length === 0 ? (
+  {overview && latest ? (
     <>
-      <p class="section-label">Latest</p>
-      <p class="empty">No articles yet. The first scheduled run publishes here.</p>
+      <CadenceStrip days={overview.days} windowLabel={overview.windowLabel} label={overview.stripLabel} />
+
+      <MetricTiles overview={overview} />
+
+      <p class="board__print-summary">
+        {overview.articleCount} articles · {overview.sourceCount} sources · {overview.topicCount} topics
+      </p>
+
+      <article class="card card--latest">
+        <p class="section-label">Latest</p>
+        <h2 class="card__headline"><a href={postPath(latest.data.slug)}>{latest.data.title}</a></h2>
+        <p class="card__teaser">{latest.data.description}</p>
+        <div class="meta">
+          <time datetime={latest.data.date.toISOString()}>{formatDate(latest.data.date)}</time>
+          <span>{latestMinutes} min read</span>
+          {latest.data.tags.length > 0 && (
+            <ul class="tags">
+              {latest.data.tags.map((tag) => <li><a href={`/tags/${tag}`}>{tag}</a></li>)}
+            </ul>
+          )}
+        </div>
+        <a class="card__more" href={postPath(latest.data.slug)}>Read article →</a>
+      </article>
+
+      {(overview.topicRows.length > 0 || overview.sourceRows.length > 0) && (
+        <div class="card-row">
+          {overview.topicRows.length > 0 && <TopicTable rows={overview.topicRows} />}
+          {overview.sourceRows.length > 0 && (
+            <SourceBars
+              rows={overview.sourceRows}
+              total={overview.sourceCount}
+              articles={overview.articleCount}
+            />
+          )}
+        </div>
+      )}
+
+      {rest.length > 0 && (
+        <section class="card card--feed">
+          <div class="card__head">
+            <h2 class="card__title">Earlier articles</h2>
+            <a class="card__link" href="/archive">Archive →</a>
+          </div>
+          <ul class="post-rows">
+            {rest.map((post) => <PostCard post={post} showMetrics />)}
+          </ul>
+        </section>
+      )}
     </>
   ) : (
     <>
       <p class="section-label">Latest</p>
-
-      <article class="featured">
-        <h2 class="featured__title"><a href={postPath(featured.data.slug)}>{featured.data.title}</a></h2>
-        <p class="featured__teaser">{featured.data.description}</p>
-        <div class="meta">
-          <time datetime={featured.data.date.toISOString()}>{formatDate(featured.data.date)}</time>
-          <span>{featuredMinutes} min read</span>
-          {featured.data.tags.length > 0 && (
-            <ul class="tags">
-              {featured.data.tags.map((tag) => <li><a href={`/tags/${tag}`}>{tag}</a></li>)}
-            </ul>
-          )}
-        </div>
-      </article>
-
-      {rest.length > 0 && (
-        <ul class="post-rows">
-          {rest.map((post) => <PostCard post={post} />)}
-        </ul>
-      )}
+      <p class="empty">No articles yet. The first scheduled run publishes here.</p>
     </>
   )}
 

@@ -13,9 +13,19 @@ interface Props {
   type?: "website" | "article";
   publishedTime?: string;
   jsonLd?: Record<string, unknown>;
+  /** Dashboard ground and board width (home page only). */
+  board?: boolean;
 }
 
-const { title, description, image, type = "website", publishedTime, jsonLd } = Astro.props;
+const {
+  title,
+  description,
+  image,
+  type = "website",
+  publishedTime,
+  jsonLd,
+  board = false,
+} = Astro.props;
 const origin = Astro.site ?? new URL("https://example.com");
 const canonical = absolute(origin, cleanPath(Astro.url.pathname));
 const ogImage = absolute(origin, image ?? "/og/default.png");
@@ -53,7 +63,7 @@ const fullTitle = title === SITE.title ? title : `${title} — ${SITE.title}`;
 
     {jsonLd && <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />}
   </head>
-  <body>
+  <body class:list={[board && "board"]}>
     <a class="skip-link" href="#content">Skip to content</a>
     <Header />
     <main id="content" class="wrap">
