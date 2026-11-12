@@ -123,8 +123,19 @@ That pushes to `origin` by default; add `--no-push` to keep it local.
    * Create the channel, add the bot as an **administrator** with post rights.
    * Use `@yourchannel` as `TELEGRAM_CHANNEL_ID`, or the numeric
      `-100…` id from `getUpdates`.
-4. Approvals use inline buttons; the `publish-approved` workflow polls for them
-   hourly, so a tap is picked up within the hour (or immediately on a manual run).
+4. Approvals use inline buttons. Any `publish-approved` run applies the queued
+   taps, but its hourly cron is often delayed for hours — and Telegram forgets
+   updates after 24 hours.
+5. **Immediate publishing (recommended).** The `approval-listener` workflow
+   long-polls Telegram and dispatches `publish-approved` with the article id the
+   moment a button is tapped, so an approval becomes a post in a couple of
+   minutes. It needs no extra secret: the job token may dispatch workflows
+   (`permissions: actions: write`). If your organisation blocks that, add a
+   fine-grained PAT with **Actions: write** as the `GH_DISPATCH_TOKEN` secret.
+   The listener re-dispatches itself when its 5h25m window ends, so it keeps
+   running without relying on cron; disable the workflow to stop the chain.
+   `publish-approved` still applies any tap it polls itself, so the listener is
+   an accelerator, not a dependency.
 
 ## 7. Static hosting + subdomain DNS
 

@@ -1,0 +1,54 @@
+name: approval-listener
+
+# Catches Telegram approve/reject taps within seconds and dispatches
+# publish-approved immediately, instead of waiting for that workflow's hourly
+# cron (which GitHub routinely delays by hours — and Telegram drops updates
+# after 24 hours).
+#
+# The listener never confirms updates: it only notices them and dispatches the
+# publish run with the article id, so publishing still receives the tap, answers
+# the button and edits the message. When its window ends it dispatches itself
+# again, which keeps a listener running without depending on cron. Disable this
+# workflow to stop the chain; publish-approved keeps working either way.
+
+on:
+  schedule:
+    # Backstop only: restarts the listener if the self-dispatch chain ever breaks.
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: read
+
+concurrency:
+  group: tce-approval-listener
+  cancel-in-progress: false
+
+jobs:
+  listen:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install listener dependencies
+        run: python -m pip install --upgrade pip requests==2.31.0 python-dotenv==1.0.1
+
+      - name: Long-poll approvals and dispatch publishing
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_ADMIN_CHAT_ID: ${{ secrets.TELEGRAM_ADMIN_CHAT_ID }}
+          REQUIRE_APPROVAL: "true"
+          # A fine-grained PAT with Actions: write is the reliable trigger. The
+          # workflow falls back to the job token when the secret is not set.
+          GH_DISPATCH_TOKEN: ${{ secrets.GH_DISPATCH_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: python -m src.approval --watch --duration 19500 --redispatch

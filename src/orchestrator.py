@@ -466,6 +466,7 @@ def run(
     fetchers: dict | None = None,
     publishers=None,
     now: datetime | None = None,
+    approval: tuple[str, int] | None = None,
 ) -> list[StageResult]:
     """Run the requested stage(s): ``draft``, ``publish`` or ``full``."""
     now = now or datetime.now(timezone.utc)
@@ -476,6 +477,14 @@ def run(
         results.append(stage_a(settings, conn, llm=llm, fetchers=fetchers, now=now))
 
     if mode in {"publish", "full"}:
+        # A dispatched approval carries the decision explicitly: by the time this
+        # run starts the tap may already be outside Telegram's 24h update window.
+        # Applying it twice is harmless (already-approved is a no-op).
+        if approval is not None:
+            from .approval import apply_decision
+
+            status = apply_decision(conn, approval[0], approval[1])
+            logger.info(kv("approval_applied", action=approval[0], article_id=approval[1], status=status))
         if settings.require_approval and not settings.dry_run:
             from .approval import handle_approvals
 

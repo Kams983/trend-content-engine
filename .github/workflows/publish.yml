@@ -8,6 +8,17 @@ on:
   schedule:
     - cron: "37 * * * *"
   workflow_dispatch:
+    inputs:
+      article_id:
+        description: "Article id to approve/reject before publishing (sent by the approval listener)"
+        required: false
+      action:
+        description: "Decision to apply to that article"
+        required: false
+        type: choice
+        options:
+          - approve
+          - reject
 
 # Same group as daily.yml: the two workflows must never overlap.
 concurrency:
@@ -64,9 +75,17 @@ jobs:
           HASHNODE_PUBLICATION_ID: ${{ secrets.HASHNODE_PUBLICATION_ID }}
           MASTODON_INSTANCE: ${{ secrets.MASTODON_INSTANCE }}
           MASTODON_ACCESS_TOKEN: ${{ secrets.MASTODON_ACCESS_TOKEN }}
+          APPROVAL_ARTICLE_ID: ${{ inputs.article_id }}
+          APPROVAL_ACTION: ${{ inputs.action }}
         run: |
           before=$(find site/content/posts -name '*.md' 2>/dev/null | wc -l | tr -d ' ')
-          python -m src.main --mode publish
+          if [ -n "${APPROVAL_ARTICLE_ID}" ]; then
+            # Triggered by the approval listener: apply that decision explicitly,
+            # then publish everything approved.
+            python -m src.main --mode publish --approval "${APPROVAL_ACTION:-approve}:${APPROVAL_ARTICLE_ID}"
+          else
+            python -m src.main --mode publish
+          fi
           after=$(find site/content/posts -name '*.md' 2>/dev/null | wc -l | tr -d ' ')
           if [ "$after" -gt "$before" ]; then new_post=true; else new_post=false; fi
           echo "new_post=$new_post" >> "$GITHUB_OUTPUT"

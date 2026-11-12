@@ -43,6 +43,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="run the pipeline but send/write nothing; print what would be sent",
     )
     parser.add_argument(
+        "--approval",
+        metavar="ACTION:ID",
+        default=None,
+        help="apply one Telegram decision before publishing, e.g. approve:15 or reject:14",
+    )
+    parser.add_argument(
         "--log-level",
         default="INFO",
         choices=("DEBUG", "INFO", "WARNING", "ERROR"),
@@ -80,9 +86,21 @@ def main(argv: list[str] | None = None) -> int:
         print("Configuration error\n  - GROQ_API_KEY: required", file=sys.stderr)
         return 2
 
+    approval = None
+    if args.approval:
+        from .approval import parse_callback
+
+        approval = parse_callback(args.approval)
+        if approval is None:
+            print(
+                f"\nConfiguration error\n  - --approval must look like approve:15 or reject:14 (got {args.approval!r})\n",
+                file=sys.stderr,
+            )
+            return 2
+
     conn = init_db(settings.db_path)
     try:
-        results = run(settings, conn)
+        results = run(settings, conn, approval=approval)
     finally:
         conn.close()
 
