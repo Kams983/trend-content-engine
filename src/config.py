@@ -172,9 +172,9 @@ class Settings:
 
     # --- validation -----------------------------------------------------
     article_min_words: int = 400
-    article_max_words: int = 800
+    article_max_words: int = 600
     title_max_len: int = 120
-    teaser_max_len: int = 280
+    teaser_max_len: int = 200
 
     # --- social ---------------------------------------------------------
     bluesky_handle: str = ""
@@ -299,9 +299,9 @@ def load_settings(
         w_sources=_float("SCORE_W_SOURCES", 1.0),
         w_engagement=_float("SCORE_W_ENGAGEMENT", 0.8),
         article_min_words=_int("ARTICLE_MIN_WORDS", 400),
-        article_max_words=_int("ARTICLE_MAX_WORDS", 800),
+        article_max_words=_int("ARTICLE_MAX_WORDS", 600),
         title_max_len=_int("TITLE_MAX_LEN", 120),
-        teaser_max_len=_int("TEASER_MAX_LEN", 280),
+        teaser_max_len=_int("TEASER_MAX_LEN", 200),
         bluesky_handle=_str("BLUESKY_HANDLE"),
         bluesky_app_password=_str("BLUESKY_APP_PASSWORD"),
         telegram_bot_token=_str("TELEGRAM_BOT_TOKEN"),
