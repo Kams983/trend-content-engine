@@ -31,8 +31,11 @@ asserts the built page matches.
 
 * `src/layouts/BaseLayout.astro` — head, SEO/OG/Twitter tags, JSON-LD, header/footer.
 * `src/components/` — header, footer, post card, analytics, subscribe.
-* `src/pages/` — home, post, tag index + tag pages, archive, about, 404, `rss.xml`,
-  `robots.txt` and build-time OG images under `/og/`.
+* `src/pages/` — home, post, topic index + topic pages, `/board`, archive, about, 404,
+  `rss.xml`, `robots.txt` and build-time OG images under `/og/`. Old `/tags/*` URLs
+  redirect to their topic page.
+* `src/lib/topics.ts` — the only place that decides what counts as a readable topic: arXiv
+  categories are mapped to labels, ingestion sources (`arxiv`, `hackernews`, …) are never topics.
 * `src/lib/site.ts` — publication identity (`PUBLIC_BRAND_*`), URLs, dates, reading time, sorting, tags.
 * `src/lib/overview.ts` — the home board's numbers (window, cadence, topics, source mix). Pure: posts
   in, plain data out, no clock, so every build of the same content is identical.
@@ -40,7 +43,9 @@ asserts the built page matches.
   the home board's sections; `PostCard.astro` also renders each row of the home feed.
 * `scripts/check-brand.mjs` — build guardrail: fails if the engine name appears in `dist/`.
 * `scripts/check-board.mjs` — build guardrail: parses the post frontmatter independently and fails if
-  the built home page's numbers, cards or cadence ticks disagree with the content.
+  the `/board` tiles, rhythm bars, source bars or topic rows disagree with the content, if the
+  "topics covered" tile stops matching the rows it lists, or if the board renders below
+  `BOARD_MIN_ARTICLES` (10, in `src/lib/site.ts`).
 * `src/lib/og.ts` — satori + resvg 1200×630 OG images.
 * `src/content.config.ts` — the strict Zod schema; a malformed post fails the build.
 

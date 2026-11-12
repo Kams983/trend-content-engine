@@ -1,32 +1,33 @@
 ---
 import { getCollection } from "astro:content";
-import BaseLayout from "../../layouts/BaseLayout.astro";
-import PostCard from "../../components/PostCard.astro";
-import { SITE, allTags, postsWithTag, sortPosts } from "../../lib/site";
+import { absolute, allTags } from "../../lib/site";
+import { TOPIC_LABELS, topicHref } from "../../lib/topics";
 
 export async function getStaticPaths() {
   const posts = await getCollection("posts");
-  return allTags(posts).map(({ tag }) => ({
-    params: { tag },
-    props: { tag },
-  }));
+  return allTags(posts).map(({ tag }) => {
+    const label = TOPIC_LABELS[tag];
+    return { params: { tag }, props: { to: label ? topicHref(label) : "/topics" } };
+  });
 }
 
-const { tag } = Astro.props;
-const posts = postsWithTag(sortPosts(await getCollection("posts")), tag);
+// Old tag URLs stay reachable. A source tag (arxiv, hackernews) has no topic
+// page to land on, so it redirects to the topic index instead of a dead end.
+const { to } = Astro.props;
+const origin = Astro.site ?? new URL("https://example.com");
 ---
 
-<BaseLayout
-  title={`Posts tagged “${tag}”`}
-  description={`${posts.length} post${posts.length === 1 ? "" : "s"} tagged “${tag}” on ${SITE.title}.`}
->
-  <h1 class="page-title">{tag}</h1>
-  <p class="meta">
-    <span>{posts.length} {posts.length === 1 ? "article" : "articles"}</span>
-    <span><a href="/tags">All tags</a></span>
-  </p>
-
-  <ul class="post-rows">
-    {posts.map((post) => <PostCard post={post} />)}
-  </ul>
-</BaseLayout>
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Moved</title>
+    <link rel="canonical" href={absolute(origin, to)} />
+    <meta name="robots" content="noindex" />
+    <meta http-equiv="refresh" content={`0; url=${to}`} />
+  </head>
+  <body>
+    <p>This page moved to <a href={to}>{to}</a>.</p>
+  </body>
+</html>

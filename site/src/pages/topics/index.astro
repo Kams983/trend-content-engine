@@ -1,0 +1,26 @@
+---
+import { getCollection } from "astro:content";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { SITE, sortPosts } from "../../lib/site";
+import { topicHref, topicSummaries } from "../../lib/topics";
+
+const posts = sortPosts(await getCollection("posts"));
+const topics = topicSummaries(posts);
+---
+
+<BaseLayout title="Topics" description={`Every subject ${SITE.title} covers, with article counts.`}>
+  <h1 class="page-title">Topics</h1>
+
+  {topics.length === 0 ? (
+    <p class="empty">No topics yet.</p>
+  ) : (
+    <ul class="topic-list">
+      {topics.map((topic) => (
+        <li>
+          <a href={topicHref(topic.label)}>{topic.label}</a>
+          <span class="topic-list__count">{topic.articles} article{topic.articles === 1 ? "" : "s"}</span>
+        </li>
+      ))}
+    </ul>
+  )}
+</BaseLayout>

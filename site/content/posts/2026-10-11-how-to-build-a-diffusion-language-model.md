@@ -1,6 +1,6 @@
 ---
 title: "How to build a diffusion language model"
-description: "How to build a diffusion language model was reported by hackernews (https://kuleshov-group.github.io/blog/blog/2026/how-to-build-a-diffusion-language-mode…"
+description: "A walkthrough of building a diffusion language model, alongside papers on a tendon-driven robot hand, deformable-object dynamics and what text alone can teach a model about language."
 date: 2026-10-11T21:04:04.521310+00:00
 slug: "2026-10-11-how-to-build-a-diffusion-language-model"
 topic_id: 1

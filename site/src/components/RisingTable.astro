@@ -1,0 +1,26 @@
+---
+import type { BoardTopic } from "../lib/overview";
+import { topicHref } from "../lib/topics";
+
+interface Props {
+  topics: BoardTopic[];
+}
+
+const { topics } = Astro.props;
+---
+
+<section class="panel" aria-labelledby="rising-heading">
+  <div class="panel__head">
+    <h2 class="label" id="rising-heading">What is rising</h2>
+    <a class="text-link" href="/topics">All topics →</a>
+  </div>
+  <ul class="rising">
+    {topics.map((topic) => (
+      <li class="rising__row" data-topic={topic.label} data-count={topic.articles}>
+        <a class="rising__name" href={topicHref(topic.label)}>{topic.label}</a>
+        <span class="rising__count">{topic.articles} article{topic.articles === 1 ? "" : "s"}</span>
+        <time class="rising__date" datetime={topic.lastDate.toISOString()}>{topic.lastLabel}</time>
+      </li>
+    ))}
+  </ul>
+</section>

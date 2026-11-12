@@ -2,6 +2,7 @@
 import { getCollection, render } from "astro:content";
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import { SITE, absolute, formatDate, postPath, readingTime, sortPosts } from "../../lib/site";
+import { sourceNames, topicLabels } from "../../lib/topics";
 
 export async function getStaticPaths() {
   const posts = sortPosts(await getCollection("posts"));
@@ -28,8 +29,13 @@ const { post, newer, older } = Astro.props;
 const { Content } = await render(post);
 const origin = Astro.site ?? new URL("https://example.com");
 const image = `/og/${post.data.slug}.png`;
+const sourceItems = post.data.sources ?? [];
+// A post written without sources (the welcome note) is not a data post: it gets
+// no sources line and no reading-time claim.
+const hasSources = sourceItems.length > 0;
 const minutes = readingTime(post.body ?? "");
-const sources = post.data.sources ?? [];
+const sources = sourceNames(post);
+const topics = topicLabels(post);
 
 /**
  * The engine appends its own Sources section to the markdown body. This page
@@ -51,8 +57,8 @@ const jsonLd = {
   mainEntityOfPage: absolute(origin, postPath(post.data.slug)),
   image: absolute(origin, image),
   isAccessibleForFree: true,
-  keywords: post.data.tags.join(", "),
-  citation: post.data.sources.map((source) => ({
+  keywords: topics.join(", "),
+  citation: sourceItems.map((source) => ({
     "@type": "CreativeWork",
     name: source.title,
     url: source.url,
@@ -73,37 +79,20 @@ const jsonLd = {
       <h1 class="article__title">{post.data.title}</h1>
       <div class="meta article__meta">
         <time datetime={post.data.date.toISOString()}>{formatDate(post.data.date)}</time>
-        <span>{minutes} min read</span>
-        {post.data.tags.length > 0 && (
-          <ul class="tags">
-            {post.data.tags.map((tag) => <li><a href={`/tags/${tag}`}>{tag}</a></li>)}
-          </ul>
-        )}
+        {hasSources && <span>{minutes} min read</span>}
+        {sources.length > 0 && <span>Sources: {sources.join(", ")}</span>}
       </div>
-      <p class="article__disclosure">
-        {post.data.ai_assisted ? (
-          <>
-            AI-assisted. Drafted by a language model from the {sources.length}
-            {" "}
-            source{sources.length === 1 ? "" : "s"} listed below, then checked for length, citations and
-            placeholders, and approved by a person before publishing. Check anything that matters at the
-            original source.
-          </>
-        ) : (
-          <>Written by a person. The daily articles are machine-drafted; this one explains how that works.</>
-        )}
-      </p>
     </header>
 
     <div class:list={["prose", bodyHasSourcesSection && "prose--body-sources"]}>
       <Content />
     </div>
 
-    {sources.length > 0 && (
+    {hasSources && (
       <section class="sources" aria-labelledby="sources-heading">
         <h2 class="sources__label" id="sources-heading">Sources</h2>
         <ol class="sources__list">
-          {sources.map((source) => {
+          {sourceItems.map((source) => {
             const host = domain(source.url);
             return (
               <li>

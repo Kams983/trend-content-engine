@@ -1,30 +1,36 @@
 ---
-import type { SourceRow } from "../lib/overview";
+import type { BoardSource } from "../lib/overview";
 
 interface Props {
-  rows: SourceRow[];
+  sources: BoardSource[];
   total: number;
   articles: number;
 }
 
-const { rows, total, articles } = Astro.props;
-const articleLabel = `${articles} article${articles === 1 ? "" : "s"}`;
+const { sources, total, articles } = Astro.props;
+const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? "" : "s"}`;
 ---
 
-<section class="card card--sources">
-  <div class="card__head">
-    <h2 class="card__title">Where it came from</h2>
-    <p class="card__note">{total} source{total === 1 ? "" : "s"} across {articleLabel}</p>
+<section class="panel" aria-labelledby="sources-heading">
+  <div class="panel__head">
+    <h2 class="label" id="sources-heading">Where it came from</h2>
   </div>
-  <ul class="bars">
-    {rows.map((row) => (
-      <li class="bars__row">
-        <span class="bars__name">{row.name}</span>
-        <span class="bars__track" aria-hidden="true">
-          <span class="bars__fill" style={`width:${Math.round(row.shareOfMax * 100)}%`}></span>
-        </span>
-        <span class="bars__count">{row.count}</span>
+  <ul class="src-list">
+    {sources.map((source, index) => (
+      <li
+        class:list={["src", index === 0 && "src--lead"]}
+        data-source={source.name}
+        data-count={source.count}
+      >
+        <div class="src__head">
+          <span>{source.name}</span>
+          <span class="src__count">{source.count}</span>
+        </div>
+        <div class="src__track">
+          <span class="src__bar" style={`width:${source.widthPct}%`}></span>
+        </div>
       </li>
     ))}
   </ul>
+  <p class="src-list__total">{plural(total, "source")} across {plural(articles, "article")}</p>
 </section>

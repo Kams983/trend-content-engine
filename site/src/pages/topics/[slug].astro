@@ -1,0 +1,31 @@
+---
+import { getCollection } from "astro:content";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import EarlierList from "../../components/EarlierList.astro";
+import { SITE, sortPosts } from "../../lib/site";
+import { postsWithTopic, topicSummaries } from "../../lib/topics";
+
+export async function getStaticPaths() {
+  const posts = await getCollection("posts");
+  return topicSummaries(posts).map((topic) => ({
+    params: { slug: topic.slug },
+    props: { label: topic.label },
+  }));
+}
+
+const { label } = Astro.props;
+const posts = postsWithTopic(sortPosts(await getCollection("posts")), label);
+---
+
+<BaseLayout
+  title={`${label} — topics`}
+  description={`Every ${label} article published by ${SITE.title}.`}
+>
+  <h1 class="page-title">{label}</h1>
+  <p class="meta">
+    <span>{posts.length} article{posts.length === 1 ? "" : "s"}</span>
+    <span> · <a href="/topics">All topics</a></span>
+  </p>
+
+  <EarlierList posts={posts} heading="Articles" archiveLink={false} />
+</BaseLayout>

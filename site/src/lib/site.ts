@@ -38,6 +38,14 @@ export const SITE = {
 
 export type Post = CollectionEntry<"posts">;
 
+/**
+ * The dashboard ("/board") is only built once the publication has this many
+ * articles. Below it the route renders nothing, the header link is hidden and
+ * `check:board` skips its assertions, so a young site never shows an empty
+ * board or a "not enough data" placeholder.
+ */
+export const BOARD_MIN_ARTICLES = 10;
+
 /** Canonical post path (always no trailing slash). */
 export function postPath(slug: string): string {
   return `/posts/${slug}`;

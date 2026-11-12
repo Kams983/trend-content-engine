@@ -1,17 +1,24 @@
 ---
-import { SITE } from "../lib/site";
+import { SITE, cleanPath } from "../lib/site";
 
-const path = Astro.url.pathname;
+interface Props {
+  /** Shows the "This week" link once the board is actually built. */
+  showBoard?: boolean;
+}
+
+const { showBoard = false } = Astro.props;
+const path = cleanPath(Astro.url.pathname);
 const links = [
+  ...(showBoard ? [{ href: "/board", label: "This week" }] : []),
   { href: "/archive", label: "Archive" },
-  { href: "/tags", label: "Tags" },
+  { href: "/topics", label: "Topics" },
   { href: "/about", label: "About" },
   { href: "/rss.xml", label: "RSS" },
 ];
 
 function current(href: string): "page" | undefined {
   if (href === "/rss.xml") return undefined;
-  return path.startsWith(href) ? "page" : undefined;
+  return path === href || path.startsWith(`${href}/`) ? "page" : undefined;
 }
 ---
 

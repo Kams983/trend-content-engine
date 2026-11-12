@@ -4,6 +4,7 @@ import { getCollection, render } from "astro:content";
 import type { APIContext } from "astro";
 
 import { SITE, absolute, postPath, sortPosts } from "../lib/site";
+import { topicLabels } from "../lib/topics";
 
 /** Full-content feed at /rss.xml. */
 export async function GET(context: APIContext) {
@@ -23,7 +24,7 @@ export async function GET(context: APIContext) {
       pubDate: post.data.date,
       // Absolute so @astrojs/rss does not append a trailing slash.
       link: absolute(origin, postPath(post.data.slug)),
-      categories: post.data.tags,
+      categories: topicLabels(post),
       content: html,
       customData: `<source>${absolute(origin, `/og/${post.data.slug}.png`)}</source>`,
     });

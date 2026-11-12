@@ -1,0 +1,39 @@
+---
+import type { Board } from "../lib/overview";
+
+interface Props {
+  board: Board;
+}
+
+const { board } = Astro.props;
+const tiles = [
+  {
+    key: "articles",
+    value: board.articleCount,
+    label: "Articles published",
+    sub: `On ${board.publicationDays} of ${board.windowDays} days`,
+  },
+  {
+    key: "sources",
+    value: board.sourceCount,
+    label: "Sources cited",
+    sub: `${board.perArticle} per article`,
+  },
+  {
+    key: "topics",
+    value: board.topicCount,
+    label: "Topics covered",
+    sub: board.topTopic ? `Most covered: ${board.topTopic}` : "No topics yet",
+  },
+];
+---
+
+<ul class="stats">
+  {tiles.map((tile) => (
+    <li class="stat" data-stat={tile.key}>
+      <span class="stat__value">{tile.value}</span>
+      <span class="stat__label">{tile.label}</span>
+      <span class="stat__sub">{tile.sub}</span>
+    </li>
+  ))}
+</ul>

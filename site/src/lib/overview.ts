@@ -1,66 +1,71 @@
 /**
- * Build-time numbers for the home board.
+ * Build-time data for the dashboard at /board.
  *
  * Pure: posts in, plain data out — no Astro imports, no clock. The window ends
  * at the newest post's date rather than at build time, so a build on a quiet
  * morning shows the last edition instead of a row of zeros, and every build of
- * the same content produces the same output.
+ * the same content produces the same output. Bar heights and widths are
+ * computed here from the content, never hardcoded in the template.
  */
 import type { Post } from "./site";
 import { formatDayShort, sortPosts } from "./site";
+import { sourceLabel, topicSummaries, type TopicSummary } from "./topics";
 
 const DAY_MS = 86_400_000;
-const DEFAULT_WINDOW_DAYS = 7;
-const TOPIC_LIMIT = 5;
-const SOURCE_LIMIT = 6;
 
-const narrowWeekday = new Intl.DateTimeFormat("en-US", { weekday: "narrow", timeZone: "UTC" });
-const longWeekday = new Intl.DateTimeFormat("en-US", { weekday: "long", timeZone: "UTC" });
+/** The board reports on the last week of published articles. */
+export const WINDOW_DAYS = 7;
+
+/** Plot height in px for the publishing-rhythm chart. */
+const PLOT_HEIGHT = 140;
+
+const weekdayLong = new Intl.DateTimeFormat("en-US", { weekday: "short", timeZone: "UTC" });
+const weekdayNarrow = new Intl.DateTimeFormat("en-US", { weekday: "narrow", timeZone: "UTC" });
 const longDay = new Intl.DateTimeFormat("en-US", { month: "long", day: "numeric", timeZone: "UTC" });
 
-export interface DayMark {
-  date: Date;
-  weekday: string;
+export interface BoardDay {
+  iso: string;
   articles: number;
-  sources: number;
+  /** Bar height in px; empty days get the 2px stub. */
+  heightPx: number;
+  weekday: string;
+  weekdayNarrow: string;
+  isToday: boolean;
 }
 
-export interface TopicRow {
-  tag: string;
-  posts: number;
-  sources: number;
-  lastDate: Date;
-}
-
-export interface SourceRow {
+export interface BoardSource {
   name: string;
   count: number;
-  shareOfMax: number;
+  /** Bar width as a percentage of the largest source. */
+  widthPct: number;
 }
 
-export interface Overview {
-  days: DayMark[];
-  windowDays: number;
+export interface BoardTopic extends TopicSummary {
+  /** "Oct 11" — the last date this topic was covered in the window. */
+  lastLabel: string;
+}
+
+export interface Board {
+  windowStart: Date;
   windowEnd: Date;
   windowLabel: string;
-  stripLabel: string;
   articleCount: number;
   sourceCount: number;
+  /** Every topic the table can list; the "topics covered" tile equals this. */
+  topics: BoardTopic[];
   topicCount: number;
   publicationDays: number;
-  quietDays: number;
-  sourcesPerArticle: number;
+  windowDays: number;
+  perArticle: string;
   topTopic: string;
-  topicRows: TopicRow[];
-  sourceRows: SourceRow[];
+  days: BoardDay[];
+  sources: BoardSource[];
 }
 
-const startOfUtcDay = (date: Date): Date =>
+export const startOfUtcDay = (date: Date): Date =>
   new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
 
-const dayKey = (date: Date): string => startOfUtcDay(date).toISOString().slice(0, 10);
-
-export function buildOverview(posts: Post[], windowDays = DEFAULT_WINDOW_DAYS): Overview | null {
+export function buildBoard(posts: Post[], windowDays = WINDOW_DAYS): Board | null {
   if (posts.length === 0) return null;
 
   const sorted = sortPosts(posts);
@@ -68,75 +73,67 @@ export function buildOverview(posts: Post[], windowDays = DEFAULT_WINDOW_DAYS): 
   const windowStart = new Date(windowEnd.getTime() - (windowDays - 1) * DAY_MS);
   const inWindow = sorted.filter((post) => startOfUtcDay(post.data.date) >= windowStart);
 
-  const days: DayMark[] = [];
+  const days: BoardDay[] = [];
   for (let offset = 0; offset < windowDays; offset += 1) {
     const date = new Date(windowStart.getTime() + offset * DAY_MS);
-    const key = date.toISOString().slice(0, 10);
-    const ofDay = inWindow.filter((post) => dayKey(post.data.date) === key);
+    const iso = date.toISOString().slice(0, 10);
     days.push({
-      date,
-      weekday: narrowWeekday.format(date),
-      articles: ofDay.length,
-      sources: ofDay.reduce((sum, post) => sum + post.data.sources.length, 0),
+      iso,
+      articles: 0,
+      heightPx: 2,
+      weekday: weekdayLong.format(date),
+      weekdayNarrow: weekdayNarrow.format(date),
+      isToday: date.getTime() === windowEnd.getTime(),
     });
   }
 
-  const sourceCount = inWindow.reduce((sum, post) => sum + post.data.sources.length, 0);
-
-  const byTag = new Map<string, TopicRow>();
+  const sourceTotals = new Map<string, number>();
   for (const post of inWindow) {
-    for (const tag of post.data.tags) {
-      const row = byTag.get(tag) ?? { tag, posts: 0, sources: 0, lastDate: post.data.date };
-      row.posts += 1;
-      row.sources += post.data.sources.length;
-      if (post.data.date > row.lastDate) row.lastDate = post.data.date;
-      byTag.set(tag, row);
+    const day = days.find((candidate) => candidate.iso === startOfUtcDay(post.data.date).toISOString().slice(0, 10));
+    if (day) day.articles += 1;
+    for (const item of post.data.sources ?? []) {
+      const name = sourceLabel(item.source);
+      if (!name) continue;
+      sourceTotals.set(name, (sourceTotals.get(name) ?? 0) + 1);
     }
   }
-  const topicRows = [...byTag.values()]
-    .sort(
-      (a, b) =>
-        b.sources - a.sources ||
-        b.posts - a.posts ||
-        b.lastDate.valueOf() - a.lastDate.valueOf() ||
-        a.tag.localeCompare(b.tag),
-    )
-    .slice(0, TOPIC_LIMIT);
 
-  const bySource = new Map<string, number>();
-  for (const post of inWindow) {
-    for (const item of post.data.sources) {
-      const name = item.source || "other";
-      bySource.set(name, (bySource.get(name) ?? 0) + 1);
-    }
+  const maxArticles = Math.max(1, ...days.map((day) => day.articles));
+  for (const day of days) {
+    day.heightPx =
+      day.articles === 0
+        ? 2
+        : Math.max(10, Math.round((day.articles / maxArticles) * PLOT_HEIGHT));
   }
-  const maxSource = Math.max(0, ...bySource.values());
-  const sourceRows = [...bySource.entries()]
-    .map(([name, count]) => ({ name, count, shareOfMax: maxSource > 0 ? count / maxSource : 0 }))
-    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
-    .slice(0, SOURCE_LIMIT);
 
-  const publicationDays = days.filter((day) => day.articles > 0).length;
-  const windowLabel = `${formatDayShort(windowStart)} to ${formatDayShort(windowEnd)}`;
-  const stripLabel = [
-    `Sources cited per day, ${longDay.format(windowStart)} to ${formatDayShort(windowEnd)}:`,
-    ...days.map((day) => `${longWeekday.format(day.date)} ${day.sources}`),
-  ].join(" ");
+  const sourceCount = [...sourceTotals.values()].reduce((sum, count) => sum + count, 0);
+  const maxSource = Math.max(0, ...sourceTotals.values());
+  const sources: BoardSource[] = [...sourceTotals.entries()]
+    .map(([name, count]) => ({
+      name,
+      count,
+      widthPct: maxSource > 0 ? Math.round((count / maxSource) * 100) : 0,
+    }))
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+
+  const topics: BoardTopic[] = topicSummaries(inWindow).map((row) => ({
+    ...row,
+    lastLabel: formatDayShort(row.lastDate),
+  }));
 
   return {
-    days,
-    windowDays,
+    windowStart,
     windowEnd,
-    windowLabel,
-    stripLabel,
+    windowLabel: `${longDay.format(windowStart)} to ${longDay.format(windowEnd)}`,
     articleCount: inWindow.length,
     sourceCount,
-    topicCount: byTag.size,
-    publicationDays,
-    quietDays: windowDays - publicationDays,
-    sourcesPerArticle: inWindow.length > 0 ? sourceCount / inWindow.length : 0,
-    topTopic: topicRows[0]?.tag ?? "",
-    topicRows,
-    sourceRows,
+    topics,
+    topicCount: topics.length,
+    publicationDays: days.filter((day) => day.articles > 0).length,
+    windowDays,
+    perArticle: inWindow.length > 0 ? (sourceCount / inWindow.length).toFixed(1) : "0.0",
+    topTopic: topics[0]?.label ?? "",
+    days,
+    sources,
   };
 }

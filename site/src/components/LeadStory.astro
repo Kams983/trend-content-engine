@@ -1,0 +1,32 @@
+---
+import type { Post } from "../lib/site";
+import { formatDate, postPath, readingTime } from "../lib/site";
+import { sourceNames, topicHref, topicLabels } from "../lib/topics";
+
+interface Props {
+  post: Post;
+}
+
+const { post } = Astro.props;
+const href = postPath(post.data.slug);
+const minutes = readingTime(post.body ?? "");
+const sources = sourceNames(post);
+const topics = topicLabels(post).slice(0, 3);
+const hasSources = (post.data.sources ?? []).length > 0;
+---
+
+<article class="lead">
+  <p class="label label--accent">Latest · {formatDate(post.data.date)}</p>
+  <h1 class="lead__title"><a href={href}>{post.data.title}</a></h1>
+  <p class="lead__teaser">{post.data.description}</p>
+  <div class="lead__actions">
+    <a class="button" href={href}>Read the article</a>
+    {hasSources && <span class="meta">{minutes} min read</span>}
+    {sources.length > 0 && <span class="meta">Sources: {sources.join(", ")}</span>}
+    {topics.length > 0 && (
+      <ul class="pills">
+        {topics.map((topic) => <li><a class="pill" href={topicHref(topic)}>{topic}</a></li>)}
+      </ul>
+    )}
+  </div>
+</article>

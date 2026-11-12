@@ -1,0 +1,35 @@
+---
+import { getCollection } from "astro:content";
+import BaseLayout from "../layouts/BaseLayout.astro";
+import StatTiles from "../components/StatTiles.astro";
+import RhythmChart from "../components/RhythmChart.astro";
+import SourceBars from "../components/SourceBars.astro";
+import RisingTable from "../components/RisingTable.astro";
+import { buildBoard } from "../lib/overview";
+import { BOARD_MIN_ARTICLES, SITE, sortPosts } from "../lib/site";
+
+const posts = sortPosts(await getCollection("posts"));
+// Below the threshold the page renders nothing at all: no empty state, no
+// placeholder tiles, and no link to it in the header.
+const board = posts.length >= BOARD_MIN_ARTICLES ? buildBoard(posts) : null;
+---
+
+<BaseLayout
+  title="The week"
+  description={`What ${SITE.title} published in the last seven days, derived from the articles themselves.`}
+>
+  {board ? (
+    <>
+      <header class="board__head">
+        <p class="label label--accent">The week</p>
+        <h1 class="board__title">{board.windowLabel}</h1>
+      </header>
+      <StatTiles board={board} />
+      <div class="panels">
+        <RhythmChart days={board.days} />
+        <SourceBars sources={board.sources} total={board.sourceCount} articles={board.articleCount} />
+      </div>
+      <RisingTable topics={board.topics} />
+    </>
+  ) : null}
+</BaseLayout>

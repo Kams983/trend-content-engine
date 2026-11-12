@@ -1,25 +1,22 @@
 ---
-import { getCollection } from "astro:content";
-import BaseLayout from "../../layouts/BaseLayout.astro";
-import { SITE, allTags, sortPosts } from "../../lib/site";
+import { absolute } from "../../lib/site";
 
-const posts = sortPosts(await getCollection("posts"));
-const tags = allTags(posts);
+// The tag index became the topic index; keep the old URL working.
+const target = "/topics";
+const origin = Astro.site ?? new URL("https://example.com");
 ---
 
-<BaseLayout title="Tags" description={`Every topic covered by ${SITE.title}, with article counts.`}>
-  <h1 class="page-title">Tags</h1>
-
-  {tags.length === 0 ? (
-    <p class="empty">No tags yet.</p>
-  ) : (
-    <ul class="tag-list">
-      {tags.map(({ tag, count }) => (
-        <li>
-          <a href={`/tags/${tag}`}>{tag}</a>
-          <span class="tag-list__count"> · {count}</span>
-        </li>
-      ))}
-    </ul>
-  )}
-</BaseLayout>
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Topics — moved</title>
+    <link rel="canonical" href={absolute(origin, target)} />
+    <meta name="robots" content="noindex" />
+    <meta http-equiv="refresh" content={`0; url=${target}`} />
+  </head>
+  <body>
+    <p>This page moved to <a href={target}>topics</a>.</p>
+  </body>
+</html>

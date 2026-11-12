@@ -1,0 +1,37 @@
+---
+import type { BoardDay } from "../lib/overview";
+
+interface Props {
+  days: BoardDay[];
+}
+
+const { days } = Astro.props;
+const summary = days.map((day) => `${day.weekday} ${day.articles}`).join(", ");
+---
+
+<section class="panel" aria-labelledby="rhythm-heading">
+  <div class="panel__head">
+    <h2 class="label" id="rhythm-heading">Publishing rhythm</h2>
+    <span class="panel__note">Articles per day</span>
+  </div>
+  <div class="rhythm" role="img" aria-label={`Articles published per day: ${summary}`}>
+    {days.map((day) => (
+      <div
+        class:list={["rhythm__col", day.isToday && "rhythm__col--today"]}
+        data-day={day.iso}
+        data-count={day.articles}
+      >
+        <div class="rhythm__plot">
+          <span
+            class:list={["rhythm__bar", day.articles === 0 && "rhythm__bar--empty"]}
+            style={day.articles === 0 ? undefined : `height:${day.heightPx}px`}
+          ></span>
+        </div>
+        <span class="rhythm__day">
+          <span class="rhythm__day--long">{day.weekday}</span>
+          <span class="rhythm__day--narrow">{day.weekdayNarrow}</span>
+        </span>
+      </div>
+    ))}
+  </div>
+</section>
