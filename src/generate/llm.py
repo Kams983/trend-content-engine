@@ -30,7 +30,7 @@ from typing import Any, Protocol
 from ..config import Settings
 from ..util.http import HttpError, RetryPolicy, request
 from ..util.logging_setup import kv
-from .validate import derive_tags
+from .validate import derive_tags, derive_teaser
 
 logger = logging.getLogger(__name__)
 
@@ -182,16 +182,12 @@ def _stub_body(cluster: list[dict], settings: Settings) -> tuple[str, str]:
     """Deterministic, grounded body built only from the cluster's own words."""
     sentences: list[str] = []
     for item in cluster:
-        title = (item.get("title") or "").strip()
         content = " ".join((item.get("content") or "").split())
-        url = item.get("url") or ""
-        source = item.get("source") or "a source"
-        if title:
-            sentences.append(f"{title} was reported by {source} ({url}).")
-        if content:
-            chunk = " ".join(content.split()[:70]).strip()
-            if chunk:
-                sentences.append(chunk if chunk.endswith(".") else chunk + ".")
+        if not content:
+            continue
+        chunk = " ".join(content.split()[:70]).strip()
+        if chunk:
+            sentences.append(chunk if chunk.endswith(".") else chunk + ".")
     for item in cluster:
         content = " ".join((item.get("content") or "").split())
         rest = " ".join(content.split()[70:170]).strip()
@@ -210,10 +206,9 @@ def _stub_body(cluster: list[dict], settings: Settings) -> tuple[str, str]:
     if not body.endswith("."):
         body += "."
 
-    teaser_words = " ".join(sentences).split()
-    teaser = " ".join(teaser_words[:24]).strip()
-    if len(teaser) > settings.teaser_max_len:
-        teaser = teaser[: settings.teaser_max_len - 1].rstrip() + "…"
+    # The teaser is the article's own opening prose, never a scraped headline:
+    # no "<title> was reported by <source> (<url>)" and no URL at all.
+    teaser = derive_teaser(body, max_len=max(40, settings.teaser_max_len - 1))
     return body, teaser
 
 

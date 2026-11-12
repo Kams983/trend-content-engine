@@ -6,7 +6,8 @@ can be fed back to the model for one regeneration):
 * schema: title / body_markdown / teaser present and non-empty strings,
 * title length within ``TITLE_MAX_LEN``,
 * word count inside ``[ARTICLE_MIN_WORDS, ARTICLE_MAX_WORDS]``,
-* teaser within ``TEASER_MAX_LEN`` graphemes,
+* teaser within ``TEASER_MAX_LEN`` graphemes, plain prose: no URL and no
+  scraped-headline boilerplate ("was reported by"),
 * every URL in the body appears in the supplied source URLs,
 * no placeholders or boilerplate,
 * tags non-empty and slug-safe,
@@ -36,6 +37,9 @@ PLACEHOLDER_MARKERS = (
 _URL_RE = re.compile(r"https?://[^\s)\]<>\"'`,]+")
 _TAG_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 
+#: Markers of a teaser built from a scraped headline instead of the article.
+TEASER_BANNED_PHRASES = ("was reported by",)
+
 
 def normalise_url(url: str) -> str:
     """Lower-case scheme+host, drop a trailing slash, strip trailing punctuation."""
@@ -52,6 +56,44 @@ def normalise_url(url: str) -> str:
 
 def extract_urls(text: str) -> list[str]:
     return [normalise_url(m) for m in _URL_RE.findall(text or "")]
+
+
+def plain_text(text: str) -> str:
+    """Strip URLs and markdown syntax so prose can be cut into a teaser."""
+    text = _URL_RE.sub(" ", text or "")
+    text = re.sub(r"!?\[([^\]]*)\]\([^)]*\)", r"\1", text)
+    text = re.sub(r"[#>*_`]+", " ", text)
+    return " ".join(text.split())
+
+
+def derive_teaser(text: str, max_len: int = 199) -> str:
+    """First sentences of *text* as a plain-text teaser, never a scraped headline.
+
+    URLs are removed rather than shown, so the teaser can never fall back to
+    ``<title> was reported by <source> (<url>)``. It is cut at a sentence end
+    when one fits and at a word boundary otherwise, and stays under *max_len*.
+    """
+    clean = plain_text(text)
+    if not clean:
+        return ""
+    limit = max(20, max_len)
+    teaser = ""
+    for sentence in re.findall(r"[^.!?]+[.!?]", clean):
+        sentence = sentence.strip()
+        candidate = f"{teaser} {sentence}".strip()
+        if len(candidate) > limit:
+            break
+        teaser = candidate
+        if len(teaser) >= limit * 0.6:
+            break
+    if not teaser:
+        teaser = clean
+    if len(teaser) > limit:
+        cut = teaser[: limit - 1].rstrip()
+        if " " in cut:
+            cut = cut[: cut.rfind(" ")]
+        teaser = cut.rstrip(" ,;:—-") + "…"
+    return teaser.strip()
 
 
 def derive_tags(cluster: list[dict], limit: int = 6) -> list[str]:
@@ -125,8 +167,18 @@ def validate_article(
 
     if not isinstance(teaser, str) or not teaser.strip():
         errors.append("teaser must be a non-empty string")
-    elif grapheme_len(teaser) > settings.teaser_max_len:
-        errors.append(f"teaser is {grapheme_len(teaser)} graphemes, max {settings.teaser_max_len}")
+    else:
+        if grapheme_len(teaser) > settings.teaser_max_len:
+            errors.append(f"teaser is {grapheme_len(teaser)} graphemes, max {settings.teaser_max_len}")
+        if extract_urls(teaser):
+            errors.append("teaser must not contain a URL; write it from the article's own prose")
+        lowered = teaser.lower()
+        for phrase in TEASER_BANNED_PHRASES:
+            if phrase in lowered:
+                errors.append(
+                    f"teaser must not contain boilerplate text: {phrase!r}; "
+                    "use the article's first sentences instead"
+                )
 
     if not isinstance(tags, list) or not tags:
         errors.append("tags must be a non-empty list")

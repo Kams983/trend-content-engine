@@ -5,8 +5,10 @@ from __future__ import annotations
 import json
 
 from src.generate.draft_article import is_declined, parse_draft
+from src.generate.llm import OfflineStubLLM
 from src.generate.validate import (
     build_sources_section,
+    derive_teaser,
     extract_urls,
     finalize_article,
     normalise_url,
@@ -168,3 +170,59 @@ def test_extract_and_normalise_urls() -> None:
     text = "see https://x.test/a. and https://y.test/b/"
     assert extract_urls(text) == ["https://x.test/a", "https://y.test/b"]
     assert normalise_url("https://X.test/A/") == "https://x.test/A"
+
+
+# --- teaser provenance -----------------------------------------------------
+
+
+def test_teaser_with_url_is_rejected(settings) -> None:
+    article = make_article()
+    article["teaser"] = "Read it at https://a.test/1 for the details."
+    result = validate_article(article, SOURCES, settings)
+    assert not result.ok
+    assert any("must not contain a URL" in error for error in result.errors)
+
+
+def test_teaser_with_reported_phrase_is_rejected(settings) -> None:
+    article = make_article()
+    article["teaser"] = "A grounded title was reported by hackernews."
+    result = validate_article(article, SOURCES, settings)
+    assert not result.ok
+    assert any("was reported by" in error for error in result.errors)
+
+
+def test_derive_teaser_strips_urls_and_stays_short() -> None:
+    body = (
+        "Continuous diffusion models trade sampling steps for quality. "
+        "A second sentence adds context. "
+        "Details at https://a.test/1 and https://b.test/2."
+    )
+    teaser = derive_teaser(body)
+    assert "http" not in teaser
+    assert len(teaser) < 200
+    assert teaser.startswith("Continuous diffusion models")
+
+
+def test_derive_teaser_cuts_at_a_word_boundary() -> None:
+    teaser = derive_teaser("word " * 120, max_len=60)
+    assert len(teaser) <= 60
+    assert not teaser.rstrip("…").endswith("w")
+
+
+def test_stub_teaser_comes_from_the_article_body(settings) -> None:
+    stub = OfflineStubLLM(settings)
+    cluster = [
+        {
+            "title": "A paper about hands",
+            "url": "https://arxiv.test/abs/1",
+            "source": "arxiv",
+            "content": (
+                "Tendon-driven hands move the actuators off the joints, which makes them cheaper "
+                "to build and easier to repair. " * 40
+            ),
+        }
+    ]
+    draft = json.loads(stub.complete("system", "user", cluster))
+    assert "was reported by" not in draft["teaser"]
+    assert "http" not in draft["teaser"]
+    assert len(draft["teaser"]) < settings.teaser_max_len
