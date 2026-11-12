@@ -62,6 +62,8 @@ ENV_KEYS = (
     "MAX_DRAFT_ATTEMPTS",
     "COOLDOWN_DAYS",
     "USER_AGENT",
+    "TRAFFIC_PATH",
+    "SOURCE_WEIGHTS_PATH",
 )
 
 
@@ -79,6 +81,14 @@ def fixture_encoder():
     install_fixture_encoder()
     yield
     embed.reset_encoder()
+
+
+@pytest.fixture(autouse=True)
+def isolated_feedback_files(tmp_path, monkeypatch):
+    """Never read the repo's real traffic or weights files from a test."""
+    monkeypatch.setenv("TRAFFIC_PATH", str(tmp_path / "traffic.json"))
+    monkeypatch.setenv("SOURCE_WEIGHTS_PATH", str(tmp_path / "settings.yaml"))
+    yield
 
 
 @pytest.fixture

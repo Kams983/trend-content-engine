@@ -2,9 +2,9 @@
 
 Score
 -----
-``score = w_velocity*velocity + w_novelty*novelty
-         + w_size*log1p(item_count) + w_sources*distinct_sources
-         + w_engagement*mean_engagement_percentile``
+``score = (w_velocity*velocity + w_novelty*novelty
+          + w_size*log1p(item_count) + w_sources*distinct_sources
+          + w_engagement*mean_engagement_percentile) * source_trust``
 
 * ``velocity`` — today's item count divided by the mean daily count over the
   last 7 days **for the same topic_id** (default 1.0 only when there is no
@@ -13,6 +13,10 @@ Score
 * ``novelty`` — 1 when the ``topic_id`` is new this run, else 0.
 * ``engagement`` — per-source percentile rank, averaged over the cluster, so
   Hacker News points cannot swamp arXiv author counts.
+* ``source_trust`` — the mean weight (from the last
+  :mod:`src.learn.feedback` run) of the cluster's sources. 1.0 when no weights
+  file exists, so scoring is unchanged until there is real traffic to learn
+  from.
 
 Eligibility: at least ``MIN_CLUSTER_ITEMS`` items from at least
 ``MIN_CLUSTER_SOURCES`` distinct sources, and not inside the publish cooldown
@@ -28,6 +32,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from ..config import Settings
+from ..learn.feedback import load_weights, trust_for
 from ..state import repo
 from ..util.logging_setup import kv
 from . import topics as topics_mod
@@ -144,6 +149,8 @@ def score_clusters(
     percentiles = engagement_percentiles(all_items)
     assigned = topics_mod.assign_topics(conn, clusters, settings, now=now)
     weights = settings.score_weights()
+    # Per-source feedback from the last run of src.learn.feedback ({} → 1.0).
+    source_weights = load_weights()
 
     ranked: list[dict] = []
     for info in assigned:
@@ -153,6 +160,7 @@ def score_clusters(
         novelty = 1.0 if info["is_new"] else 0.0
         size_term = math.log1p(count)
         engagement = _cluster_engagement(info["items"], percentiles)
+        source_trust = trust_for(info["sources"], source_weights)
 
         score = (
             weights["velocity"] * vel
@@ -160,7 +168,7 @@ def score_clusters(
             + weights["size"] * size_term
             + weights["sources"] * source_count
             + weights["engagement"] * engagement
-        )
+        ) * source_trust
 
         reason = ""
         if count < settings.min_cluster_items:
@@ -180,6 +188,7 @@ def score_clusters(
                 "novelty": novelty,
                 "size_term": round(size_term, 3),
                 "engagement": round(engagement, 3),
+                "source_trust": round(source_trust, 3),
                 "history_days": history_days,
                 "score": round(score, 4),
                 "eligible": reason == "",

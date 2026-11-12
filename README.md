@@ -137,6 +137,8 @@ The important ones:
 | `ENABLE_HASHNODE` / `ENABLE_MASTODON` | `false` | optional targets |
 | `TELEGRAM_BOT_TOKEN` / `TELEGRAM_ADMIN_CHAT_ID` | — | approval + alerts |
 | `MIN_CLUSTER_ITEMS` / `MIN_CLUSTER_SOURCES` | `3` / `2` | article eligibility |
+| `TRAFFIC_PATH` | `config/traffic.json` | `{slug: pageviews}` input for `python -m src.learn.feedback` |
+| `SOURCE_WEIGHTS_PATH` | `config/settings.yaml` | per-source trust weights written by feedback, read by scoring |
 | `TOPIC_SIMILARITY_THRESHOLD` | `0.6` | centroid match threshold |
 
 ## Tests
