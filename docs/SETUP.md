@@ -75,7 +75,7 @@ Create the repo, push `main`. Then **Settings → Secrets and variables → Acti
 | --- | --- | --- |
 | `SITE_URL` | `https://trend.example.com` | origin only, **no trailing slash** |
 | `BRAND_NAME` | `Upwire` | the publication name readers see; must match the site's `PUBLIC_BRAND_NAME` |
-| `GROQ_MODEL` | `openai/gpt-oss-120b` | optional; overrides the default |
+| `GROQ_MODEL` | `qwen/qwen3.8-27b` | optional; overrides the default |
 | `GROQ_MODEL_FALLBACK` | `openai/gpt-oss-20b` | optional |
 | `ENABLE_BLUESKY` | `false` | flip to `true` in step 9 |
 | `ENABLE_TELEGRAM_CHANNEL` | `false` | flip to `true` in step 9 |
@@ -91,8 +91,10 @@ Workflow permissions are already correct in `.github/workflows/*.yml`
 1. Create an API key at <https://console.groq.com/keys>.
 2. Add it as the `GROQ_API_KEY` secret.
 3. Optional: set `GROQ_MODEL` / `GROQ_MODEL_FALLBACK` variables. The default is
-   `openai/gpt-oss-120b` with `openai/gpt-oss-20b` as the fallback after a
-   retryable failure.
+   `qwen/qwen3.8-27b` with `openai/gpt-oss-20b` as the fallback after a
+   retryable failure. `gpt-oss-*` are reasoning models, so the client sends them
+   `reasoning_effort: low`; at the default effort the model spends the entire
+   token budget thinking and returns empty content (see `docs/PLAN.md` §5).
 
 ## 5. The `state` branch
 

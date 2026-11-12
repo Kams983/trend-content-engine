@@ -8,6 +8,15 @@ The interface is a single method::
 falls back to ``GROQ_MODEL_FALLBACK``. ``OfflineStubLLM`` deterministically
 builds a grounded article from the supplied cluster so a fresh clone can run
 ``--use-fixtures --dry-run`` without any key or network.
+
+Reasoning models (``openai/gpt-oss-*``) think before they answer and bill that
+thinking to the same completion budget as the answer. Left at the default
+effort, gpt-oss-20b spends *every* token on ``reasoning`` and returns
+``content: ""`` with ``finish_reason: "length"`` — which looks like a dead
+model and costs the day's article. So reasoning models are asked for
+``reasoning_effort: low`` and, if a response is still cut off at the budget,
+the model is retried once with a much larger one before falling through to the
+next model.
 """
 
 from __future__ import annotations
@@ -26,6 +35,17 @@ from .validate import derive_tags
 logger = logging.getLogger(__name__)
 
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
+
+#: Model-name fragments whose models spend completion tokens on hidden
+#: reasoning before emitting ``content`` (see the module docstring).
+REASONING_MODEL_HINTS = ("gpt-oss",)
+
+#: Effort passed for those models. ``low`` keeps reasoning to a few dozen
+#: tokens; ``medium`` alone burned 8192 tokens and returned nothing at all.
+REASONING_EFFORT = "low"
+
+#: Budget used for the one retry a budget-truncated response earns.
+TRUNCATION_RETRY_MAX_TOKENS = 8192
 
 
 class LLMError(RuntimeError):
@@ -51,16 +71,19 @@ class GroqLLM:
             if self.settings.groq_model_fallback and self.settings.groq_model_fallback not in self.models:
                 self.models.append(self.settings.groq_model_fallback)
 
-    def _payload(self, model: str, system: str, user: str) -> dict[str, Any]:
-        return {
+    def _payload(self, model: str, system: str, user: str, max_tokens: int | None = None) -> dict[str, Any]:
+        payload: dict[str, Any] = {
             "model": model,
             "messages": [
                 {"role": "system", "content": system},
                 {"role": "user", "content": user},
             ],
             "temperature": self.settings.groq_temperature,
-            "max_tokens": self.settings.groq_max_tokens,
+            "max_tokens": max_tokens or self.settings.groq_max_tokens,
         }
+        if _is_reasoning_model(model):
+            payload["reasoning_effort"] = REASONING_EFFORT
+        return payload
 
     def complete(self, system: str, user: str, cluster: list[dict] | None = None) -> str:
         if not self.settings.groq_api_key:
@@ -79,27 +102,69 @@ class GroqLLM:
 
         problems: list[str] = []
         for model in self.models:
+            content = self._complete_with_model(model, system, user, headers, policy, problems)
+            if content is not None:
+                return content
+
+        raise LLMError("all models failed → " + " | ".join(problems))
+
+    def _complete_with_model(
+        self,
+        model: str,
+        system: str,
+        user: str,
+        headers: dict[str, str],
+        policy: RetryPolicy,
+        problems: list[str],
+    ) -> str | None:
+        """One model's answer, or ``None`` after recording why it failed.
+
+        A response cut off at the token budget is retried once with a larger
+        one: for reasoning models that means the thinking ate the budget, and
+        for the rest it means the JSON was truncated mid-object.
+        """
+        budget = self.settings.groq_max_tokens
+        while True:
             try:
                 response = request(
-                    "POST", GROQ_URL, headers=headers, json=self._payload(model, system, user), policy=policy
+                    "POST", GROQ_URL, headers=headers, json=self._payload(model, system, user, budget), policy=policy
                 )
-                content = response.json()["choices"][0]["message"]["content"]
+                choice = response.json()["choices"][0]
+                content = choice["message"].get("content") or ""
+                finish_reason = choice.get("finish_reason")
             except HttpError as exc:
                 problems.append(f"{model}: {exc}")
                 logger.warning(kv("llm_model_failed", model=model, error=str(exc)))
-                continue
-            except (KeyError, IndexError, TypeError, ValueError) as exc:
+                return None
+            except (AttributeError, KeyError, IndexError, TypeError, ValueError) as exc:
                 problems.append(f"{model}: unexpected response shape ({type(exc).__name__})")
                 logger.warning(kv("llm_bad_response", model=model, error=str(exc)))
+                return None
+
+            if finish_reason == "length" and budget < TRUNCATION_RETRY_MAX_TOKENS:
+                logger.warning(kv("llm_truncated", model=model, max_tokens=budget, chars=len(content)))
+                budget = TRUNCATION_RETRY_MAX_TOKENS
                 continue
 
-            if not content or not str(content).strip():
-                problems.append(f"{model}: empty content")
-                continue
-            logger.info(kv("llm_completed", model=model, chars=len(str(content))))
-            return str(content)
+            if finish_reason == "length":
+                # Still cut off at the larger budget: half an answer (usually
+                # half a JSON object) is worthless, so let the next model try.
+                problems.append(f"{model}: response truncated at {budget} tokens")
+                logger.warning(kv("llm_truncated_exhausted", model=model, max_tokens=budget))
+                return None
 
-        raise LLMError("all models failed → " + " | ".join(problems))
+            if not content.strip():
+                problems.append(f"{model}: empty content (finish_reason={finish_reason})")
+                logger.warning(kv("llm_empty_content", model=model, finish_reason=finish_reason))
+                return None
+
+            logger.info(kv("llm_completed", model=model, chars=len(content)))
+            return content
+
+
+def _is_reasoning_model(model: str) -> bool:
+    """Whether *model* hides reasoning tokens inside the completion budget."""
+    return any(hint in model.lower() for hint in REASONING_MODEL_HINTS)
 
 
 # ---------------------------------------------------------------------------

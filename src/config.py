@@ -20,7 +20,7 @@ DEFAULT_DB_PATH = REPO_ROOT / "trend_store.sqlite"
 DEFAULT_CONTENT_DIR = REPO_ROOT / "site" / "content" / "posts"
 
 #: Model names are configuration, not constants — Groq retires models often.
-DEFAULT_GROQ_MODEL = "openai/gpt-oss-120b"
+DEFAULT_GROQ_MODEL = "qwen/qwen3.8-27b"
 DEFAULT_GROQ_MODEL_FALLBACK = "openai/gpt-oss-20b"
 
 #: The PUBLIC publication brand. Internal names (repo, package, tables, env

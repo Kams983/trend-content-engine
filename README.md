@@ -128,7 +128,7 @@ The important ones:
 | --- | --- | --- |
 | `GROQ_API_KEY` | — | LLM access (required unless offline smoke test) |
 | `TCE_OFFLINE` | `false` | force the deterministic stub writer (no key, no network) |
-| `GROQ_MODEL` / `GROQ_MODEL_FALLBACK` | `openai/gpt-oss-120b` / `openai/gpt-oss-20b` | chat models |
+| `GROQ_MODEL` / `GROQ_MODEL_FALLBACK` | `qwen/qwen3.8-27b` / `openai/gpt-oss-20b` | chat models |
 | `REQUIRE_APPROVAL` | `true` | wait for Telegram approve/reject before publishing |
 | `DRY_RUN` | `false` | do everything except outbound posts |
 | `SITE_URL` | — | absolute site URL, used for links |
