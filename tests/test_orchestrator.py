@@ -1,4 +1,4 @@
-"""Stage A behaviour: non-fatal source failures, skips, failures and the guard."""
+"""Stage A behaviour (source failures, skips, drafting) and Stage B logging."""
 
 from __future__ import annotations
 
@@ -8,7 +8,8 @@ from datetime import datetime, timezone
 import pytest
 
 from src.generate.llm import LLMError
-from src.orchestrator import stage_a
+from src.orchestrator import stage_a, stage_b
+from src.publish.base import PublishResult
 from src.state import repo
 
 NOW = datetime(2026, 5, 1, 12, 0, tzinfo=timezone.utc)
@@ -125,3 +126,131 @@ def test_requires_approval_sets_pending(conn, live_settings, fake_llm) -> None:
     result = stage_a(approving, conn, llm=fake_llm, fetchers=healthy_fetchers(), now=NOW)
     assert result.outcome == "PENDING_APPROVAL"
     assert len(repo.articles_by_status(conn, repo.STATUS_PENDING)) == 1
+
+
+# ---------------------------------------------------------------------------
+# Stage B: per-channel logging, idempotency, and the decline path
+# ---------------------------------------------------------------------------
+
+CHANNELS = ("site", "bluesky", "telegram")
+
+
+class Recorder:
+    """Fake publishers that count calls and return a scripted result per channel."""
+
+    def __init__(self, **behaviour: str) -> None:
+        self.behaviour = {name: behaviour.get(name, "ok") for name in CHANNELS}
+        self.calls = {name: 0 for name in CHANNELS}
+
+    def publishers(self) -> list[tuple[str, object]]:
+        pairs: list[tuple[str, object]] = []
+        for name in CHANNELS:
+
+            def publish(payload, settings, name=name):
+                self.calls[name] += 1
+                state = self.behaviour[name]
+                return PublishResult(
+                    target=name,
+                    ok=state == "ok",
+                    skipped=state == "skipped",
+                    url=f"https://example.test/{name}",
+                )
+
+            pairs.append((name, publish))
+        return pairs
+
+
+def approved_article(conn, *, label: str = "Diffusion language models") -> int:
+    return repo.insert_article(
+        conn,
+        slug="2026-05-01-vector-search-at-scale",
+        title="Vector search at scale",
+        teaser="A deterministic teaser.",
+        body="A body.",
+        topic_id=1,
+        cluster_label=label,
+        sources=[{"title": "s", "url": "https://example.test/s"}],
+        tags=["ai"],
+        status=repo.STATUS_APPROVED,
+        created_at=NOW.isoformat(),
+    )
+
+
+def test_stage_b_logs_per_channel_success_and_trend(conn, settings) -> None:
+    article_id = approved_article(conn)
+    recorder = Recorder()
+
+    result = stage_b(settings, conn, publishers=recorder.publishers(), now=NOW)
+
+    assert result.outcome == "PUBLISHED"
+    row = repo.last_runs(conn, 1)[0]
+    assert row["outcome"] == "PUBLISHED"
+    assert (row["site_ok"], row["bluesky_ok"], row["telegram_ok"]) == (1, 1, 1)
+    assert row["trend"] == "Diffusion language models"
+    assert repo.get_article(conn, article_id)["status"] == repo.STATUS_PUBLISHED
+    assert recorder.calls == {"site": 1, "bluesky": 1, "telegram": 1}
+
+
+def test_stage_b_logs_partial_failure_per_channel(conn, settings) -> None:
+    article_id = approved_article(conn)
+    recorder = Recorder(bluesky="failed")
+
+    result = stage_b(settings, conn, publishers=recorder.publishers(), now=NOW)
+
+    assert result.outcome == "FAILED_PUBLISH"
+    row = repo.last_runs(conn, 1)[0]
+    assert (row["site_ok"], row["bluesky_ok"], row["telegram_ok"]) == (1, 0, 1)
+    assert row["trend"] == "Diffusion language models"
+    # The article stays approved so the next run can retry the failed channel.
+    assert repo.get_article(conn, article_id)["status"] == repo.STATUS_APPROVED
+
+
+def test_stage_b_skipped_channel_is_not_a_success(conn, settings) -> None:
+    approved_article(conn)
+    recorder = Recorder(bluesky="skipped")
+
+    stage_b(settings, conn, publishers=recorder.publishers(), now=NOW)
+
+    row = repo.last_runs(conn, 1)[0]
+    assert (row["site_ok"], row["bluesky_ok"], row["telegram_ok"]) == (1, 0, 1)
+
+
+def test_stage_b_rerun_retries_only_the_failed_channel(conn, settings) -> None:
+    article_id = approved_article(conn)
+    recorder = Recorder(bluesky="failed")
+    first = stage_b(settings, conn, publishers=recorder.publishers(), now=NOW)
+    assert first.outcome == "FAILED_PUBLISH"
+
+    recorder.behaviour["bluesky"] = "ok"
+    second = stage_b(settings, conn, publishers=recorder.publishers(), now=NOW)
+
+    assert second.outcome == "PUBLISHED"
+    assert recorder.calls == {"site": 1, "bluesky": 2, "telegram": 1}
+    assert len(repo.publications_for(conn, article_id)) == 3
+    row = repo.last_runs(conn, 1)[0]
+    assert (row["site_ok"], row["bluesky_ok"], row["telegram_ok"]) == (1, 1, 1)
+
+
+def test_stage_b_does_not_republish_an_already_published_article(conn, settings) -> None:
+    article_id = approved_article(conn)
+    recorder = Recorder()
+    stage_b(settings, conn, publishers=recorder.publishers(), now=NOW)
+
+    rerun = stage_b(settings, conn, publishers=recorder.publishers(), now=NOW)
+
+    assert rerun.outcome == "SKIPPED_THIN"
+    assert recorder.calls == {"site": 1, "bluesky": 1, "telegram": 1}
+    assert len(repo.publications_for(conn, article_id)) == 3
+
+
+def test_declined_generation_publishes_nothing(conn, live_settings, declining_llm) -> None:
+    drafted = stage_a(live_settings, conn, llm=declining_llm, fetchers=healthy_fetchers(), now=NOW)
+    assert drafted.outcome == "SKIPPED_THIN"
+
+    recorder = Recorder()
+    published = stage_b(live_settings, conn, publishers=recorder.publishers(), now=NOW)
+
+    assert published.outcome == "SKIPPED_THIN"
+    assert recorder.calls == {"site": 0, "bluesky": 0, "telegram": 0}
+    assert conn.execute("SELECT COUNT(*) FROM articles").fetchone()[0] == 0
+    assert conn.execute("SELECT COUNT(*) FROM publications").fetchone()[0] == 0

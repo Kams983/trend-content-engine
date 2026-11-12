@@ -17,7 +17,12 @@ from src.publish.devto_poster import build_payload as devto_payload, devto_tags
 from src.publish.hashnode_poster import build_variables as hashnode_variables, hashnode_tags
 from src.publish.mastodon_poster import build_status
 from src.publish.site_publisher import build_frontmatter, site_publisher
-from src.publish.telegram_poster import build_approval_keyboard, build_channel_message, escape_html
+from src.publish.telegram_poster import (
+    build_approval_keyboard,
+    build_channel_message,
+    escape_html,
+    telegram_poster,
+)
 from src.util.text import grapheme_len
 
 #: A production-shaped origin, so every assertion can check the whole URL.
@@ -177,10 +182,22 @@ def test_outbound_builders_raise_rather_than_emit_a_relative_link() -> None:
             build()
 
 
-def test_bluesky_poster_surfaces_the_missing_site_url() -> None:
+def test_bluesky_poster_reports_a_missing_site_url_instead_of_raising() -> None:
     configured = replace(Settings(), bluesky_handle="h.test", bluesky_app_password="pw")
-    with pytest.raises(MissingSiteUrl):
-        bluesky_poster(ARTICLE, configured)
+    result = bluesky_poster(ARTICLE, configured)
+    assert result.ok is False
+    assert result.status == "failed"
+    assert result.target == "bluesky"
+    assert "SITE_URL is not set" in result.error
+
+
+def test_telegram_poster_reports_a_missing_site_url_instead_of_raising() -> None:
+    configured = replace(Settings(), telegram_bot_token="token", telegram_channel_id="-100123")
+    result = telegram_poster(ARTICLE, configured)
+    assert result.ok is False
+    assert result.status == "failed"
+    assert result.target == "telegram"
+    assert "SITE_URL is not set" in result.error
 
 
 def test_site_publisher_still_writes_without_site_url(settings, tmp_path) -> None:

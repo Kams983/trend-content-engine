@@ -18,7 +18,7 @@ import urllib.parse
 from typing import Any
 
 from ..util.http import RetryPolicy, post_json, request
-from .base import PublishResult, build_description, post_url, publication_footer
+from .base import MissingSiteUrl, PublishResult, build_description, post_url, publication_footer
 
 logger = logging.getLogger(__name__)
 
@@ -134,7 +134,13 @@ def telegram_poster(article: dict, settings) -> PublishResult:
         return PublishResult(target="telegram", skipped=True, error="empty teaser")
     if not settings.telegram_channel_id:
         return PublishResult(target="telegram", ok=False, error="TELEGRAM_CHANNEL_ID not set")
-    return send_message(build_channel_message(article, settings), settings, chat_id=settings.telegram_channel_id)
+    try:
+        message = build_channel_message(article, settings)
+    except MissingSiteUrl as exc:
+        # The channel post must carry an absolute link; report it, don't raise.
+        logger.error("event=telegram_send_failed error=%s", exc)
+        return PublishResult(target="telegram", ok=False, error=str(exc))
+    return send_message(message, settings, chat_id=settings.telegram_channel_id)
 
 
 def send_approval_request(article: dict, article_id: int, settings) -> PublishResult:

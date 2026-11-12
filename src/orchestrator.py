@@ -356,6 +356,10 @@ def stage_b(
     published_any = False
     failed_any = False
     details: list[str] = []
+    #: Targets that succeeded / failed at least once this run, so ``run_log``
+    #: can report per-channel success instead of leaving the flags at 0.
+    succeeded: set[str] = set()
+    channel_failed: set[str] = set()
 
     for row in approved:
         payload = article_payload(row, settings)
@@ -363,6 +367,8 @@ def stage_b(
         for name, publish_fn in publishers:
             existing = repo.get_publication(conn, int(row["id"]), name)
             if existing is not None and existing["status"] == repo.PUB_OK:
+                # Already published earlier: still a success for this channel.
+                succeeded.add(name)
                 continue
             if settings.dry_run:
                 logger.info(kv("dry_run_publish", article_id=int(row["id"]), preview=preview_publication(payload, settings, name)))
@@ -386,11 +392,13 @@ def stage_b(
                 kv("publish_result", article_id=int(row["id"]), target=name, status=result.status, url=result.url)
             )
             if result.ok:
+                succeeded.add(name)
                 details.append(f"{name}:ok")
             elif result.skipped:
                 details.append(f"{name}:skipped")
             else:
                 article_ok = False
+                channel_failed.add(name)
                 details.append(f"{name}:failed")
 
         if settings.dry_run:
@@ -406,14 +414,40 @@ def stage_b(
         repo.record_run(conn, outcome=Outcome.PENDING_APPROVAL, reason=reason, stage=Stage.PUBLISH, timestamp=now.isoformat())
         return StageResult(Outcome.PENDING_APPROVAL, reason, Stage.PUBLISH)
 
+    channel_flags = {
+        f"{name}_ok": name in succeeded and name not in channel_failed
+        for name in ("site", "bluesky", "telegram")
+    }
+    #: The trend(s) this run shipped, so a publish-only run still logs which
+    #: topic went out (the draft stage records its own trend on its own row).
+    shipped_trend = ", ".join(
+        sorted({(row["cluster_label"] or "").strip() for row in approved} - {""})
+    )
+
     if failed_any:
         reason = "some targets failed: " + ", ".join(details)
-        repo.record_run(conn, outcome=Outcome.failed(Stage.PUBLISH), reason=reason, stage=Stage.PUBLISH, timestamp=now.isoformat())
+        repo.record_run(
+            conn,
+            outcome=Outcome.failed(Stage.PUBLISH),
+            reason=reason,
+            stage=Stage.PUBLISH,
+            timestamp=now.isoformat(),
+            trend=shipped_trend,
+            **channel_flags,
+        )
         alert_failure(Outcome.failed(Stage.PUBLISH), reason, settings, Stage.PUBLISH)
         return StageResult(Outcome.failed(Stage.PUBLISH), reason, Stage.PUBLISH)
 
     reason = f"published {len(approved)} article(s): " + ", ".join(details)
-    repo.record_run(conn, outcome=Outcome.PUBLISHED, reason=reason, stage=Stage.PUBLISH, timestamp=now.isoformat())
+    repo.record_run(
+        conn,
+        outcome=Outcome.PUBLISHED,
+        reason=reason,
+        stage=Stage.PUBLISH,
+        timestamp=now.isoformat(),
+        trend=shipped_trend,
+        **channel_flags,
+    )
     logger.info(kv("stage_b_done", outcome=Outcome.PUBLISHED, details=reason[:200]))
     return StageResult(Outcome.PUBLISHED, reason, Stage.PUBLISH)
 

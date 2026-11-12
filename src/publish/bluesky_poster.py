@@ -19,7 +19,7 @@ import logging
 import re
 from typing import Any
 
-from .base import PublishResult, build_description, compose_post_text, post_url, publication_footer
+from .base import MissingSiteUrl, PublishResult, build_description, compose_post_text, post_url, publication_footer
 
 logger = logging.getLogger(__name__)
 
@@ -78,7 +78,13 @@ def bluesky_poster(article: dict, settings) -> PublishResult:
     if not teaser:
         return PublishResult(target="bluesky", skipped=True, error="empty teaser")
 
-    link = article.get("url") or post_url(settings, article.get("slug", ""))
+    try:
+        link = article.get("url") or post_url(settings, article.get("slug", ""))
+    except MissingSiteUrl as exc:
+        # A cross-post without an absolute canonical link is worse than no post.
+        logger.error("event=bluesky_failed error=%s", exc)
+        return PublishResult(target="bluesky", ok=False, error=str(exc))
+
     footer = article.get("brand_name") or getattr(settings, "brand_name", "")
     text = build_post_text(teaser, link, footer=publication_footer(footer))
     facets = build_facets(text)
